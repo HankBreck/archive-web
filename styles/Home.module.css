@@ -56,6 +56,19 @@
   font-size: 1.5rem;
 }
 
+.button {
+    height: 45px;
+    border: 0;
+    width: auto;
+    padding-left: 40px;
+    padding-right: 40px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+  }
+
 .code {
   background: #fafafa;
   border-radius: 5px;
@@ -101,6 +114,14 @@
   margin: 0;
   font-size: 1.25rem;
   line-height: 1.5;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  width: 75%;
+  align-content: auto;
+  margin: auto;
 }
 
 .logo {
