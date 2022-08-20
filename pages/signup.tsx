@@ -4,6 +4,7 @@ import cs from "classnames"
 
 import styles from '../styles/Home.module.css'
 import { useRouter } from "next/router"
+import api from "../lib/utils/api-client"
 
 const SignUp: NextPage = () => {
 
@@ -12,7 +13,7 @@ const SignUp: NextPage = () => {
 
     // State variables
     const [name, setName] = useState('')
-    const [email, setEmail] = useState('')
+    const [email, setEmail] = useState('email')
     const [address, setAddress] = useState('')
     const [birthdate, setBirthdate] = useState('')
 
@@ -26,13 +27,16 @@ const SignUp: NextPage = () => {
 
     
 
-    const createAccount = () => {
-        // TODO: Send the payload to the API
-        // TODO: Ensure all fields are set
-        const payload = { name, address, birthdate, email }
-        console.log("create account")
-        router.push('cdas/asset')
-        
+    const createAccount = async (e: any) => {
+        e.preventDefault()
+        const res = await api.post('user', { walletAddress: "addr", legalName: name, address, birthdate, email })
+                            // .then(res => res.json())
+
+        if (res.ok) {
+            router.push('/cdas/asset')
+        } else {
+            alert("User could not be created. Please try again later.")
+        }
     }
     
     return (
@@ -47,7 +51,7 @@ const SignUp: NextPage = () => {
 
             <form 
                 className={styles.form}
-                onSubmit={(_) => createAccount()}
+                onSubmit={(e) => createAccount(e)}
             >
                 
                 {/* TODO:

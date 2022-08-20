@@ -1,25 +1,47 @@
-import { MongoClient } from "mongodb";
+import mongoose from "mongoose"
 
-const uri = process.env.MONGO_URI || ""
-const options = {
-  // useUnifiedTopology: true,
-  // useNewUrlParser: true,
+const uri = process.env.NODE_ENV === "production"
+  ? process.env.MONGO_URI
+  : process.env.MONGO_DEV_URI
+
+const dbName = process.env.MONGO_DB // Same on prod and dev
+
+if (!uri) {
+  throw new Error(
+    "Please define MONGO_URI in the environment variables"
+  )
 }
 
-let client: MongoClient
-let clientPromise: Promise<MongoClient>
+let cached = global.mongoose 
 
-if (process.env.NODE_ENV === "development") {
-  // In dev mode, use a global variable so we can persist our instance across hot reloads
-  let globalWithMongo = global as typeof globalThis & { mongo: Promise<MongoClient> | undefined }
-  if (!globalWithMongo.mongo) {
-    client = new MongoClient(uri, options)
-    globalWithMongo.mongo = client.connect()
+if (!cached) {
+  cached = global.mongoose = { conn: undefined, promise: undefined }
+}
+
+/**
+ * Manages and connects the MongoDB client to external DB via singleton pattern
+ * 
+ * @returns promise of the connected client
+ */
+async function dbConnect() {
+  if (cached.conn) {
+    return cached.conn
   }
-  clientPromise = globalWithMongo.mongo
-} else {
-  client = new MongoClient(uri, options)
-  clientPromise = client.connect()
+
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false,
+      autoCreate: true,
+    }
+
+    // Can force unwrap because of check above
+    cached.promise = mongoose.connect(uri!, opts).then( mongoosePromise => {
+      return mongoosePromise
+    })
+  }
+
+  cached.conn = await cached.promise
+  return cached.conn
 }
 
-export default clientPromise
+export default dbConnect
