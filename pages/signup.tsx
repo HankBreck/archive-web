@@ -1,10 +1,11 @@
+import cs from "classnames"
 import { useState } from "react"
 import { NextPage } from "next"
-import cs from "classnames"
+import { useRouter } from "next/router"
+
+import api from "../lib/utils/api-client"
 
 import styles from '../styles/Home.module.css'
-import { useRouter } from "next/router"
-import api from "../lib/utils/api-client"
 
 const SignUp: NextPage = () => {
 
@@ -30,7 +31,10 @@ const SignUp: NextPage = () => {
     const createAccount = async (e: any) => {
         e.preventDefault()
         const res = await api.post('user', { walletAddress: "addr", legalName: name, address, birthdate, email })
-                            // .then(res => res.json())
+                            .then(res => res.json())
+
+        // TODO: store user ID locally
+            // Is there a way to store it securely? Don't want to risk an attack vector for an optimization
 
         if (res.ok) {
             router.push('/cdas/asset')

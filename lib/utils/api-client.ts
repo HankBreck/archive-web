@@ -6,16 +6,25 @@ async function handleErrors(response: Response) {
   return response
 }
 
+// Only supports string: string values
+// TODO: update to encode required dtypes
+const encodeGetParams = (params: Record<string, string> | undefined) => {
+  if (!params) {
+    return ''
+  }
+  return Object.entries(params).map(kv => kv.map(encodeURIComponent).join("=")).join("&")
+}
+
 const get = (
   endpoint: string,
-  params: Record<string, unknown> | undefined
+  params: Record<string, string> | undefined // Only strings because of encodeGetParams
 ): Promise<Response> => {
   if (endpoint.startsWith('/')) {
     endpoint = endpoint.slice(1)
   }
 
   // TODO urlencode params
-  return fetch(`/api/${endpoint}?${params}`).then(handleErrors)
+  return fetch(`/api/${endpoint}?${encodeGetParams(params)}`).then(handleErrors)
 }
 
 const post = (
