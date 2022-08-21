@@ -37,7 +37,7 @@ const SignUp: NextPage = () => {
             // Is there a way to store it securely? Don't want to risk an attack vector for an optimization
 
         if (res.ok) {
-            router.push('/cdas/asset')
+            router.push('/cda/asset')
         } else {
             alert("User could not be created. Please try again later.")
         }
