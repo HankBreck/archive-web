@@ -1,17 +1,17 @@
 import { useEffect } from "react";
 import { NextPage } from "next";
 import { useRouter } from "next/router";
-
 import { useFilePicker } from "use-file-picker"
 
-import { getIPFSClient } from "../../lib/utils/ipfs"
 import { fetchOrSetTempCDA, updateTempCDA } from "../../lib/utils/cookies";
+import { getIPFSClient } from "../../lib/utils/ipfs"
+
 import styles from "../../styles/Home.module.css"
 
 const AssetUploadPage: NextPage = () => {
     /**
      * TODO
-     *  Ensure user is logged in
+     *  Ensure user is signed in w/ wallet
      */
 
     const router = useRouter()
@@ -31,6 +31,7 @@ const AssetUploadPage: NextPage = () => {
         updateTempCDA(cda)
     }
 
+    // Attempt to upload when a user selects a file
     useEffect( () => {
         const uploadFile = async (content: string) => {
             // Load IPFS client
@@ -42,12 +43,13 @@ const AssetUploadPage: NextPage = () => {
             return res.cid.toString()
         }
 
+        // Check if files are correctish then upload, store, and navigate
         if (filesContent.length > 1) {
             alert("There should only be one file")
         } else if (filesContent[0]) {
             uploadFile(filesContent[0].content).then( (cid) => {
                 saveTempCda(cid)
-                router.push('cda/rights')
+                router.push('/cda/rights')
             })
         }
     }, [filesContent])
