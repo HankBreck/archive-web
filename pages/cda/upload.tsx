@@ -1,6 +1,10 @@
+import { useEffect } from "react";
 import { NextPage } from "next";
-import { useState } from "react";
+import Image from "next/image"
+
 import { useFilePicker } from "use-file-picker"
+
+import { getIPFSClient } from "../../lib/utils/ipfs"
 import styles from "../../styles/Home.module.css"
 
 const AssetUpload: NextPage = () => {
@@ -11,13 +15,32 @@ const AssetUpload: NextPage = () => {
      *  Upload file to IPFS using known endpoint
      */
 
-    const [openFileSelector, { errors, plainFiles }] = useFilePicker({
+    const [openFileSelector, { filesContent, errors, plainFiles }] = useFilePicker({
         multiple: false, // this can probably be multiple in the future. Discuss with lawyers
         readAs: 'DataURL',
-        accept: ['.wav', '.mp3', // officially supported extensions
-                '.jpg', '.png', '.jpeg', '.JPG', '.pdf'], // helpful for testing
-        readFilesContent: false, // we could read immediately and upload to IPFS if needed
+        accept: 'image/*', // helpful for testing [NEED TO ACCEPT AUDIO FILES]
+        readFilesContent: true, // we could read immediately and upload to IPFS if needed
     })
+
+    useEffect( () => {
+        const uploadFile = async (content: string) => {
+            // Load IPFS client
+            const ipfsClient = await getIPFSClient()
+    
+            // Add and pin the file to our external IPFS node
+            const res = await ipfsClient.add(content, { pin: true })
+            
+            // TODO: Store the CID in the DB
+        }
+
+        if (filesContent.length > 1) {
+            alert("There should only be one file")
+        } else if (filesContent[0]) {
+            uploadFile(filesContent[0].content).then( () => {
+                // Navigate
+            })
+        }
+    }, [filesContent])
 
     return (
         <div className={styles.main}>
@@ -28,10 +51,6 @@ const AssetUpload: NextPage = () => {
             >
                 Select
             </button>
-
-            {errors.map((err) => (
-                err.name
-            ))}
 
             {plainFiles.map((file, idx) => (
                 <p key={file.name}>{`${idx + 1}. ${file.name}`}</p>
