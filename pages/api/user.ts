@@ -52,7 +52,6 @@ export default async function handler(
       }
 
       // Create new user in the db & capture the ID for local storage
-      // let id
       const result = await User.create({
         walletAddress: body.walletAddress,
         legalName: body.legalName,

@@ -14,7 +14,7 @@ const SignUp: NextPage = () => {
 
     // State variables
     const [name, setName] = useState('')
-    const [email, setEmail] = useState('email')
+    const [email, setEmail] = useState('')
     const [address, setAddress] = useState('')
     const [birthdate, setBirthdate] = useState('')
 
@@ -60,7 +60,6 @@ const SignUp: NextPage = () => {
                 
                 {/* TODO:
                         Capture wallet address
-                        Add field for the user's email
                 */}
                 
                 {/* Full legal name */}
@@ -93,9 +92,19 @@ const SignUp: NextPage = () => {
                     onChange={(e) => formatBirthdate(e.target.value)}
                 />
 
+                {/* Email */}
+                <label htmlFor="email">Email</label>
+                <input 
+                    name="email"
+                    placeholder="Email address (e.g. archive@gmail.com)"
+                    className={styles.input}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                />
+
                 <button
                     type="submit"
-                    className={styles.button}
+                    className={cs(styles.button, "mt-2")}
                 >
                     Submit
                 </button>
