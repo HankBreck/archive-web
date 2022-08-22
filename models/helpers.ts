@@ -4,17 +4,20 @@ export function createCda(): CDA {
     createdAt: new Date().toISOString(),
     propertyCid: '',
     creatorWalletAddress: '',
-    status: '',
+    status: 'draft',
   }
 }
 
-export interface CDA {
+export type CDA = {
   createdAt: string
   propertyCid: string
   creatorWalletAddress: string
   status: string // "draft" | "pending" | "finalized"
-  // TODO: 
-    // total % ownership of copyright
-    // parties
-    // % owned by each party
+  owners?: Array<Ownership>
+  copyrightOwnership?: number
+}
+
+export type Ownership = {
+  walletAddress: string
+  ownershipPerc: number
 }

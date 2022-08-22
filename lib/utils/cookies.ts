@@ -1,5 +1,5 @@
 import { parseCookies, setCookie } from 'nookies'
-import { createCda, CDA } from '../../models/CDAHelpers'
+import { createCda, CDA } from '../../models/helpers'
 
 export type Opts = { maxAge: number; path: string }
 

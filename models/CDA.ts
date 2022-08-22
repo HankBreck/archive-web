@@ -1,4 +1,5 @@
 import mongoose from "mongoose"
+import { Ownership } from "./helpers"
 
 // User is the schema used to store user information within our MongoDB
 const CDASchema = new mongoose.Schema({
@@ -21,6 +22,18 @@ const CDASchema = new mongoose.Schema({
 
     type: String,
     required: [true, "Status field is required."],
+  },
+  Owners: {
+    // The collection of Ownerships for the CDA
+
+    type: Array<Ownership>,
+    require: false,
+  },
+  CopyrightOwnership: {
+    // The total % of the copyright asset that the CDA owners
+
+    type: Number,
+    require: false,
   },
   CreatedAt: {
     // The time this CDA was uploaded to IPFS
