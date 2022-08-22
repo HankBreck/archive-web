@@ -47,8 +47,8 @@ const SignUp: NextPage = () => {
         <div
             className={styles.main}
         > {/* Screen level div */}
-            <div className={cs(styles.container, styles.title)}>
-                <h1>Create Account</h1>
+            <div className={styles.container}>
+                <h1 className={styles.title}>Create Account</h1>
 
                 <p>Fill out the form below to create your ARC-H1VE account!</p>
             </div>
@@ -104,7 +104,7 @@ const SignUp: NextPage = () => {
 
                 <button
                     type="submit"
-                    className={cs(styles.button, "mt-2")}
+                    className={styles.button}
                 >
                     Submit
                 </button>
