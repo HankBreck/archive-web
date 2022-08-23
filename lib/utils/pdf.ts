@@ -7,13 +7,9 @@ const fillContract = async () => {
   const cda = fetchOrSetTempCDA()
   const user = fetchOrSetUser()
 
-  console.log(0)
-
   // TODO: Validate user fields are correctly set
 
   // Validate fields are correctly set
-  console.log(user.walletAddress)
-  console.log(cda.creatorWalletAddress)
   if (user.walletAddress !== cda.creatorWalletAddress) { return }
   if (!validateCdaOwnership(cda.copyrightOwnership)) { return }
   if (!validateWalletAddress(cda.creatorWalletAddress)) { return }
@@ -27,10 +23,11 @@ const fillContract = async () => {
   // Load template PDF from local storage
   const res = await fetch('/contract-template.pdf')
   const pdfBytes = await res.arrayBuffer()
-
-  // Grab each text field
+  
   const pdfDoc = await PDFDocument.load(pdfBytes)
   const form = pdfDoc.getForm()
+
+  // Grab each text field
   const artistWalletField = form.getTextField('artist.wallet')
   const artistNameField = form.getTextField('artist.name')
   const artistAddressField = form.getTextField('artist.address')
@@ -90,12 +87,8 @@ const validateOwners = (owners: Ownership[] | undefined) => {
 }
 
 const validateCid = (cid: string | undefined) => {
-  console.log("cid:", cid)
-
   // Ensure cid exists
   if (!cid) { return false }
-  // // Ensure CID is a valid sha2-256 hash
-  // if (cid.length != 64) { return false } // make sure sha2-256 ALWAYS returns a string of length 64
   
   return true
 }

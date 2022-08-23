@@ -1,28 +1,32 @@
 import { useEffect, useState } from "react";
 import { NextPage } from "next";
 import { useRouter } from "next/router";
-import { PDFDocument } from 'pdf-lib'
+
+import { Document, Page, pdfjs } from "react-pdf";
 
 import { fillContract } from "../../lib/utils/pdf";
 import styles from "../../styles/Home.module.css";
 
+// Set global PDF worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
+
 const ReviewPage: NextPage = () => {
     const router = useRouter()
-    const [isPdfLoaded, setIsPdfLoaded] = useState(false)
-    const [hasReviewed, setHasReviewed] = useState(false)
+    const [pdfUrl, setPdfUrl] = useState<string | undefined>()
+    const [pageCount, setPageCount] = useState<number>()
 
     useEffect(() => {
-        const setPdfBytes = async () => {
+        const fetchContract = async () => {
             const pdfBytes = await fillContract()
             if (!pdfBytes) { 
-                // alert('A serious error has occurred') // TODO: Pass errors better
-                console.log("no bytes found")
+                console.log("fillContract has failed. No bytes returned")
                 return
             }
-            console.log("found them bytes!")
-            return PDFDocument.load(pdfBytes)
+            setPdfUrl(
+                window.URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }))
+            )
         }
-        setPdfBytes()
+        fetchContract()
     }, [])
 
     const handleNext = () => {
@@ -30,11 +34,18 @@ const ReviewPage: NextPage = () => {
     }
 
     const submit = () => {
-
+        // TODO:
+            // Upload to IPFS 
+            // Store in DB for updating after all signing
+            // Sign with wallet
     }
 
-    const reviewPdf = () => {
+    const onDocumentLoadSuccess = (numPages: number) => {
+        setPageCount(numPages)
+    }
 
+    if (!pdfUrl) {
+        return <h1>Filling contract with user details...</h1>
     }
 
     return (
@@ -45,24 +56,28 @@ const ReviewPage: NextPage = () => {
 
             {/* Data entry section */}
             <div className={styles.container}>
+                <Document
+                    file={pdfUrl}
+                    onLoadSuccess={(pdf) => onDocumentLoadSuccess(pdf.numPages)}
+                    onLoadError={(err) => console.error(err)}
+                    onLoadProgress={(data) => console.log(`${data.loaded} / ${data.total}`)}
+                >
+                    {Array.from({ length: pageCount || 0 }, (_, idx) => (
+                        <Page 
+                            key={`page_${idx}`}
+                            pageIndex={idx}
+                            renderAnnotationLayer={false}
+                            renderTextLayer={true}
+                        />
+                    ))}
+                </Document>
 
-            { hasReviewed ? (
                 <button
                     className={styles.button}
                     onClick={submit}
                 >
                     {"Sign & Submit"}
                 </button>
-            ) : (
-                <button
-                    className={styles.button}
-                    onClick={reviewPdf}
-                >
-                    {"Review PDF"}
-                </button>
-            )}
-
-
             </div>
         </div>
     )
