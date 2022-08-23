@@ -1,4 +1,3 @@
-import cs from "classnames"
 import { useState } from "react"
 import { NextPage } from "next"
 import { useRouter } from "next/router"
@@ -6,6 +5,7 @@ import { useRouter } from "next/router"
 import api from "../lib/utils/api-client"
 
 import styles from '../styles/Home.module.css'
+import { fetchOrSetUser, updateUser } from "../lib/utils/cookies"
 
 const SignUp: NextPage = () => {
 
@@ -26,18 +26,30 @@ const SignUp: NextPage = () => {
         setBirthdate(rawDate)
     }
 
-    
+    const saveUser = () => {
+        let user = fetchOrSetUser()
+        
+        user.walletAddress = "archive19vqyuq2pygl4wyay0c8t7ywryh5uajv2ulpqta"
+        user.address = address
+        user.birthdate = birthdate
+        user.email = email
+        user.legalName = name
+        
+        updateUser(user)
+    }
 
     const createAccount = async (e: any) => {
         e.preventDefault()
-        const res = await api.post('user', { walletAddress: "addr", legalName: name, address, birthdate, email })
-                            .then(res => res.json())
 
-        // TODO: store user ID locally
-            // Is there a way to store it securely? Don't want to risk an attack vector for an optimization
+        // TODO: Ensure fields are correctly set
+
+        const res = await api.post('user', { walletAddress: "archive19vqyuq2pygl4wyay0c8t7ywryh5uajv2ulpqta", legalName: name, address, birthdate, email })
+                            // .then(res => res.json())
+
+        saveUser()
 
         if (res.ok) {
-            router.push('/cda/asset')
+            router.push('/cda/upload')
         } else {
             alert("User could not be created. Please try again later.")
         }

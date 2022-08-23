@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate-contract": "npx ts-node -P ./tsconfig.json  ./scripts/generateContract.ts"
   },
   "dependencies": {
     "ipfs-core": "^0.15.4",
@@ -14,6 +15,7 @@
     "mongoose": "^6.5.2",
     "next": "12.2.5",
     "nookies": "^2.5.2",
+    "pdf-lib": "^1.17.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "use-file-picker": "^1.5.1"
@@ -24,6 +26,7 @@
     "@types/react-dom": "18.0.6",
     "eslint": "8.22.0",
     "eslint-config-next": "12.2.5",
+    "ts-node": "^10.9.1",
     "typescript": "4.7.4",
     "uint8arrays": "^3.1.0"
   }

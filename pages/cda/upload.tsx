@@ -26,7 +26,7 @@ const AssetUploadPage: NextPage = () => {
         const cda = fetchOrSetTempCDA()
 
         cda.propertyCid = cid
-        cda.creatorWalletAddress = "UPDATE WITH THE REAL WALLET ADDRESS"
+        cda.creatorWalletAddress = "archive19vqyuq2pygl4wyay0c8t7ywryh5uajv2ulpqta"
 
         updateTempCDA(cda)
     }
