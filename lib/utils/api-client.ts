@@ -19,8 +19,16 @@ const get = (
   endpoint: string,
   params: Record<string, string> | undefined // Only strings because of encodeGetParams
 ): Promise<Response> => {
+
   if (endpoint.startsWith('/')) {
     endpoint = endpoint.slice(1)
+  }
+
+  if (!global.window) {
+    const server_uri = process.env.NODE_ENV === 'production'
+      ? process.env.SERVER_URI!
+      : 'http://localhost:3000'
+    return fetch(`${server_uri}/api/${endpoint}?${encodeGetParams(params)}`).then(handleErrors)
   }
 
   // TODO urlencode params
