@@ -57,7 +57,7 @@ const createCDAsTableQuery = "CREATE TABLE CDAs( \
   id VARCHAR(64) NOT NULL, \
   creator_wallet VARCHAR(64) NOT NULL, \
   contract_cid VARCHAR(64) NOT NULL, \
-  contract_s3_key VARCHAR(16) NOT NULL, \
+  contract_s3_key VARCHAR(64) NOT NULL, \
   status VARCHAR(16) NOT NULL, \
   created_at TIMESTAMP, \
   PRIMARY KEY(id), \

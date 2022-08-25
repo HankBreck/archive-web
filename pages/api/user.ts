@@ -1,11 +1,11 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
-import { ObjectId } from 'mongodb'
 import type { NextApiRequest, NextApiResponse } from 'next'
-import dbConnect from '../../lib/mongodb'
+
 import User from '../../models/User'
+import { query } from '../../lib/postgres'
 
 export type UserResponse = {
-  _id: ObjectId
+  _id: string
   legalName: string
   address: string
   birthdate: string
@@ -18,9 +18,9 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
-  const { body, method } = req // refactor
+  const { method } = req // refactor
 
-  await dbConnect()
+  let queryStr: string
 
   switch (method) {
     case 'GET':
@@ -33,33 +33,41 @@ export default async function handler(
       const { id } = req.query
 
       // Fetch user from db
-      const user = await User.findById<UserResponse>(id)
-      if (!user) {
-        return res.status(404).json({ success: true, message: "User not found" })
-      }
-      return res.status(200).json({ success: true, user: user })
+      queryStr = " \ "
+      const queryResult = await query(queryStr)
+
+      return res.status(200).json({ success: true, user: "user" })
 
     case 'POST':
       // Create a new user
 
+      const user = req.body.user as User
+
       // Ensure all fields are properly set
-      if (!body.walletAddress ||
-          !body.legalName ||
-          !body.address ||
-          !body.birthdate ||
-          !body.email) {
+      if (!user.wallet_address ||
+          !user.legal_name ||
+          !user.street_address ||
+          !user.city ||
+          !user.state ||
+          !user.zipcode ||
+          !user.birth_date ||
+          !user.email) {
             return res.status(400).json({ success: false, message: "Invalid argument supplied." })
       }
 
       // Create new user in the db & capture the ID for local storage
-      const result = await User.create({
-        walletAddress: body.walletAddress,
-        legalName: body.legalName,
-        address: body.address,
-        birthdate: body.birthdate,
-        email: body.email,
-      })
-      return res.status(200).json({ success: true, id: result.id })
+      user.created_at = new Date().toISOString()
+      const birth_date = new Date(user.birth_date).toDateString()
+      const queryValues = [user.wallet_address, user.legal_name, user.street_address, user.city, user.state, user.zipcode, birth_date, user.email, user.created_at]
+      queryStr = `INSERT INTO Users VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+      
+      try {
+        await query(queryStr, queryValues)
+        return res.status(200).json({})
+      } catch (error) {
+        console.error(error)
+        return res.status(400).json({ error })
+      }
 
     default:
       // Method not allowed

@@ -6,6 +6,7 @@ import api from "../lib/utils/api-client"
 
 import styles from '../styles/Home.module.css'
 import { fetchOrSetUser, updateUser } from "../lib/utils/cookies"
+import User from "../models/User"
 
 const SignUp: NextPage = () => {
 
@@ -16,6 +17,9 @@ const SignUp: NextPage = () => {
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
     const [address, setAddress] = useState('')
+    const [city, setCity] = useState('')
+    const [state, setState] = useState('')
+    const [zip, setZip] = useState('')
     const [birthdate, setBirthdate] = useState('')
 
     // TODO: Ensure user is authenticated
@@ -29,11 +33,11 @@ const SignUp: NextPage = () => {
     const saveUser = () => {
         let user = fetchOrSetUser()
         
-        user.walletAddress = "archive19vqyuq2pygl4wyay0c8t7ywryh5uajv2ulpqta"
-        user.address = address
-        user.birthdate = birthdate
+        user.wallet_address = "archive1ps3rtvcqw3p9megamtg8mrq3nn7fvzw2de6e62"
+        user.street_address = address
+        user.birth_date = birthdate
         user.email = email
-        user.legalName = name
+        user.legal_name = name
         
         updateUser(user)
     }
@@ -41,9 +45,21 @@ const SignUp: NextPage = () => {
     const createAccount = async (e: any) => {
         e.preventDefault()
 
-        // TODO: Ensure fields are correctly set
+        // TODO: 
+            // Ensure fields are correctly set
 
-        const res = await api.post('user', { walletAddress: "archive19vqyuq2pygl4wyay0c8t7ywryh5uajv2ulpqta", legalName: name, address, birthdate, email })
+        const user: User = {
+            wallet_address: "archive19vqyuq2pygl4wyay0c8t7ywryh5uajv2ulpqta", 
+            legal_name: name, 
+            birth_date: birthdate, 
+            street_address: address, 
+            zipcode: zip,
+            state,
+            city,
+            email,
+        }
+
+        const res = await api.post('user', { user })
                             // .then(res => res.json())
 
         saveUser()
@@ -85,13 +101,43 @@ const SignUp: NextPage = () => {
                 />
 
                 {/* Address */}
-                <label htmlFor="address">Legal Address</label>
+                <label htmlFor="address">Street Address</label>
                 <input 
                     name="address"
-                    placeholder="Address (e.g. 123 E Main St, Bozeman, MT 59715)"
+                    placeholder="Address (e.g. 123 E Main St)"
                     className={styles.input}
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
+                />
+
+                {/* City */}
+                <label htmlFor="city">City</label>
+                <input 
+                    name="city"
+                    placeholder="City (e.g. Bozeman)"
+                    className={styles.input}
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                />
+
+                {/* State */}
+                <label htmlFor="state">State</label>
+                <input 
+                    name="state"
+                    placeholder="State (e.g. MT)"
+                    className={styles.input}
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                />
+
+                {/* Zip code */}
+                <label htmlFor="zipcode">ZIP Code</label>
+                <input 
+                    name="zipcode"
+                    placeholder="ZIP Code (e.g. 59715)"
+                    className={styles.input}
+                    value={zip}
+                    onChange={(e) => setZip(e.target.value.trim())}
                 />
 
                 {/* Birth date */}

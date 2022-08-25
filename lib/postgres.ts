@@ -40,10 +40,9 @@ let pool = new Pool({
 
 const query = (
   text: string, 
-  params: any, 
-  callback: (err: Error, result: QueryResult<any>) => void,
+  values?: any, 
 ) => {
-  return pool.query(text, params, callback)
+  return pool.query(text, values)
 }
 
 export { query }

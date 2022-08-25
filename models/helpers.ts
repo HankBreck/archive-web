@@ -1,13 +1,23 @@
-import { randomUUID } from "crypto"
-import CDA from "./CDA"
 import User from "./User"
 
-export function createCda(): CDA {
+export type LocalCDA = {
+  creatorWalletAddress: string
+  propertyCid: string
+  ipOwnership: number // renamed from copyrightOwnership
+  owners: Ownership[]
+  s3Key: string
+  contractCid: string
+  status: "draft" | "pending" | "finalized"
+}
+
+export function createCda(): LocalCDA {
   return {
-    id: randomUUID(),
-    contract_cid: '',
-    creator_wallet: '',
-    contract_s3_key: '',
+    creatorWalletAddress: '',
+    propertyCid: '',
+    ipOwnership: 0,
+    owners: [],
+    s3Key: '',
+    contractCid: '',
     status: 'draft',
   }
 }

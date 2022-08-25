@@ -66,27 +66,24 @@ const ReviewPage: NextPage = () => {
         // Store CID and S3 key in CDA object
         const cda = fetchOrSetTempCDA()
         const s3Json = await s3Response.json()
-        cda.status = "pending"
         cda.s3Key = s3Json.key as string
         cda.contractCid = ipfsResult.cid.toString()
 
         console.log("CDA Payload:", cda)
 
         // Store CDA in db
-        const mongoResponse = await api.post('/cda/cda', { cda })
+        const dbResponse = await api.post('/cda/cda', { cda })
 
-        if (!mongoResponse.ok) {
+        if (!dbResponse.ok) {
             throw new Error("mongodb post failed")
         }
 
-        const mongoJson = await mongoResponse.json()
+        const mongoJson = await dbResponse.json()
         const cdaId = mongoJson.id as string
 
-        console.log("cdaId")
+        console.log("cdaId:", cdaId)
 
         // TODO:
-            // Upload to IPFS 
-            // Store in DB for updating after all signing
             // Sign with wallet
     }
 

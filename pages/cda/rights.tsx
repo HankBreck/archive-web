@@ -55,7 +55,11 @@ const RightsPage: NextPage = () => {
     const saveTempCda = () => {
         const cda = fetchOrSetTempCDA()
 
-        cda.copyrightOwnership = cdaOwnershipPerc
+        // Ensure fields are set
+        if (!cdaOwnershipPerc) { return }
+        if (!owners || owners.length < 1) { return }
+
+        cda.ipOwnership = cdaOwnershipPerc
         cda.owners = owners
 
         updateTempCDA(cda)

@@ -1,5 +1,6 @@
 import { parseCookies, setCookie } from 'nookies'
-import { createCda, CDA, User, createUser } from '../../models/helpers'
+import { createCda, createUser, LocalCDA } from '../../models/helpers'
+import User from '../../models/User';
 
 export type Opts = { maxAge: number; path: string }
 
@@ -8,7 +9,7 @@ export const opts: Opts = {
   path: '/'
 }
 
-export function fetchOrSetTempCDA(): CDA {
+export function fetchOrSetTempCDA(): LocalCDA {
   const { cda } = parseCookies()
 
   if (!cda) {
@@ -20,7 +21,7 @@ export function fetchOrSetTempCDA(): CDA {
   return JSON.parse(cda)
 }
 
-export function updateTempCDA(newCda: CDA) {
+export function updateTempCDA(newCda: LocalCDA) {
   setCookie(null, 'cda', JSON.stringify(newCda), opts)
 }
 
