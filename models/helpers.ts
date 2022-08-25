@@ -1,38 +1,27 @@
-export type CDA = {
-  createdAt: string
-  propertyCid: string
-  creatorWalletAddress: string
-  status: string // "draft" | "pending" | "finalized"
-  contractCid?: string
-  s3Key?: string
-  owners?: Array<Ownership>
-  copyrightOwnership?: number
-}
+import { randomUUID } from "crypto"
+import CDA from "./CDA"
+import User from "./User"
 
 export function createCda(): CDA {
   return {
-    createdAt: new Date().toISOString(),
-    propertyCid: '',
-    creatorWalletAddress: '',
+    id: randomUUID(),
+    contract_cid: '',
+    creator_wallet: '',
+    contract_s3_key: '',
     status: 'draft',
   }
 }
 
-export type User = {
-  legalName: string
-  address: string
-  birthdate: string
-  email: string
-  walletAddress: string
-}
-
 export function createUser(): User {
   return {
-    legalName: '',
-    address: '',
-    birthdate: '',
+    wallet_address: '',
+    legal_name: '',
+    street_address: '',
+    city: '',
+    state: '',
+    zipcode: '',
+    birth_date: '',
     email: '',
-    walletAddress: '',
   }
 }
 
