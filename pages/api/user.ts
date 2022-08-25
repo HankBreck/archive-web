@@ -27,16 +27,22 @@ export default async function handler(
       // Get the user for a specific ID
 
       // Safely grab url params
-      if (!req.query || !req.query.id) {
-        return res.status(400).json({ success: false, message: "ID field is required."})
+      if (!req.query || !req.query.wallet_address) {
+        return res.status(400).json({ message: "Wallet address field is required."})
       }
-      const { id } = req.query
+      const { wallet_address } = req.query
 
       // Fetch user from db
-      queryStr = " \ "
-      const queryResult = await query(queryStr)
+      const queryResult = await query<User>(
+        "SELECT * from Users WHERE wallet_address = $1",
+        [wallet_address as string]
+      )
 
-      return res.status(200).json({ success: true, user: "user" })
+      if (queryResult.rowCount > 1) {
+        return res.status(400).json({ message: "Duplicate users found."})
+      }
+
+      return res.status(200).json({ user: queryResult.rows[0] })
 
     case 'POST':
       // Create a new user
@@ -52,14 +58,16 @@ export default async function handler(
           !user.zipcode ||
           !user.birth_date ||
           !user.email) {
-            return res.status(400).json({ success: false, message: "Invalid argument supplied." })
+            return res.status(400).json({ message: "Invalid argument supplied." })
       }
 
       // Create new user in the db & capture the ID for local storage
       user.created_at = new Date().toISOString()
       const birth_date = new Date(user.birth_date).toDateString()
-      const queryValues = [user.wallet_address, user.legal_name, user.street_address, user.city, user.state, user.zipcode, birth_date, user.email, user.created_at]
+
+      // Build query objects
       queryStr = `INSERT INTO Users VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+      const queryValues = [user.wallet_address, user.legal_name, user.street_address, user.city, user.state, user.zipcode, birth_date, user.email, user.created_at]
       
       try {
         await query(queryStr, queryValues)
@@ -75,6 +83,6 @@ export default async function handler(
       return res
         .status(100)
         .setHeader("Allow", ['GET', 'POST'])
-        .json({ success: false, message: "Method not allowed. Try 'GET' or 'SET' instead." })
+        .json({ message: "Method not allowed. Try 'GET' or 'SET' instead." })
   }
 }
