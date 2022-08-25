@@ -1,4 +1,4 @@
-import { Pool, QueryResult } from 'pg'
+import { Pool, QueryResult, QueryResultRow } from 'pg'
 
 const dbName = process.env.PGDATABASE
 const dbPort = process.env.PGPORT
@@ -38,11 +38,11 @@ let pool = new Pool({
 //   return pool
 // }
 
-const query = (
+const query = <R = any>(
   text: string, 
   values?: any, 
 ) => {
-  return pool.query(text, values)
+  return pool.query<R>(text, values)
 }
 
 /**
