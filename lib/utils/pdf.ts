@@ -1,7 +1,7 @@
+import { PDFDocument } from 'pdf-lib'
+
 import { Ownership } from "../../models/helpers"
 import { fetchOrSetTempCDA, fetchOrSetUser } from "./cookies"
-
-import { PDFDocument } from 'pdf-lib'
 
 const fillContract = async () => {
   const cda = fetchOrSetTempCDA()

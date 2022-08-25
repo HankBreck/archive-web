@@ -6,6 +6,10 @@ import { Document, Page, pdfjs } from "react-pdf";
 
 import { fillContract } from "../../lib/utils/pdf";
 import styles from "../../styles/Home.module.css";
+import { getIPFSClient } from "../../lib/utils/ipfs";
+import api from "../../lib/utils/api-client";
+import { fetchOrSetTempCDA } from "../../lib/utils/cookies";
+import { bytesToUtf8 } from "../../lib/utils/binary"
 
 // Set global PDF worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
@@ -13,18 +17,26 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 const ReviewPage: NextPage = () => {
     const router = useRouter()
     const [pdfUrl, setPdfUrl] = useState<string | undefined>()
+    const [pdfString, setPdfString] = useState<string | undefined>()
+    const [pdfBytes, setPdfBytes] = useState<Uint8Array | undefined>()
+    // const [pdf]
     const [pageCount, setPageCount] = useState<number>()
 
     useEffect(() => {
         const fetchContract = async () => {
-            const pdfBytes = await fillContract()
-            if (!pdfBytes) { 
+            const bytes = await fillContract()
+            if (!bytes) { 
                 console.log("fillContract has failed. No bytes returned")
                 return
             }
+
             setPdfUrl(
-                window.URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }))
+                window.URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
             )
+
+            const stringBytes = bytesToUtf8(bytes)
+            setPdfString(stringBytes)
+            setPdfBytes(bytes)
         }
         fetchContract()
     }, [])
@@ -33,7 +45,45 @@ const ReviewPage: NextPage = () => {
         router.push('/cda/review')
     }
 
-    const submit = () => {
+    const submit = async () => {
+        if (!pdfBytes) {
+            throw new Error("pdf bytes not set!")
+        }
+
+        console.log("Uploading to IPFS & S3")
+
+        const ipfs = await getIPFSClient()
+        const ipfsPromise = ipfs.add(pdfBytes, { pin: true })
+        const s3Promise = api.post('/cda/contract', { pdfString })
+        const [ipfsResult, s3Response] = await Promise.all([ipfsPromise, s3Promise])
+
+        console.log("IPFS & S3 responded")
+        
+        if (!s3Response.ok) { 
+            throw new Error("s3 upload failed!")
+        }
+        
+        // Store CID and S3 key in CDA object
+        const cda = fetchOrSetTempCDA()
+        const s3Json = await s3Response.json()
+        cda.status = "pending"
+        cda.s3Key = s3Json.key as string
+        cda.contractCid = ipfsResult.cid.toString()
+
+        console.log("CDA Payload:", cda)
+
+        // Store CDA in db
+        const mongoResponse = await api.post('/cda/cda', { cda })
+
+        if (!mongoResponse.ok) {
+            throw new Error("mongodb post failed")
+        }
+
+        const mongoJson = await mongoResponse.json()
+        const cdaId = mongoJson.id as string
+
+        console.log("cdaId")
+
         // TODO:
             // Upload to IPFS 
             // Store in DB for updating after all signing
@@ -60,7 +110,6 @@ const ReviewPage: NextPage = () => {
                     file={pdfUrl}
                     onLoadSuccess={(pdf) => onDocumentLoadSuccess(pdf.numPages)}
                     onLoadError={(err) => console.error(err)}
-                    onLoadProgress={(data) => console.log(`${data.loaded} / ${data.total}`)}
                 >
                     {Array.from({ length: pageCount || 0 }, (_, idx) => (
                         <Page 

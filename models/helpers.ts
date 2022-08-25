@@ -3,6 +3,8 @@ export type CDA = {
   propertyCid: string
   creatorWalletAddress: string
   status: string // "draft" | "pending" | "finalized"
+  contractCid?: string
+  s3Key?: string
   owners?: Array<Ownership>
   copyrightOwnership?: number
 }
