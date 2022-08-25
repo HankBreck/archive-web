@@ -1,7 +1,7 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import { randomUUID } from 'crypto'
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { query } from '../../../lib/postgres'
+import { query, transaction } from '../../../lib/postgres'
 
 import CDA from '../../../models/CDA'
 import { LocalCDA } from '../../../models/helpers'
@@ -47,12 +47,26 @@ export default async function handler(
       // TODO: 
         // Store ownership data in CdaOwnership DB
 
-      // WARNING: Ensure `VALUES` order is the same as the table's order
-      const queryValues = [cdaModel.id, cdaModel.creator_wallet, cdaModel.contract_cid, cdaModel.contract_s3_key, cdaModel.status, cdaModel.created_at]
-      const queryStr = `INSERT INTO CDAs VALUES ($1, $2, $3, $4, $5, $6)`
+      // Build list of queries for each owner of the CDA
+      const ownershipQueries = cda.owners.map((ownership) => {
+        // This feels silly
+        return {
+          text: "INSERT INTO CdaOwnership VALUES ($1, $2, $3)",
+          values: [cdaModel.id, ownership.walletAddress, ownership.ownershipPerc],
+        }
+      })
+
+      // Build query for CDA
+      const cdasQueryStr = "INSERT INTO CDAs VALUES ($1, $2, $3, $4, $5, $6)"
+      const cdasQueryValues = [cdaModel.id, cdaModel.creator_wallet, cdaModel.contract_cid, cdaModel.contract_s3_key, cdaModel.status, cdaModel.created_at]
 
       try {
-        await query(queryStr, queryValues)
+        // Insert CDA into CDAs table
+        await query(cdasQueryStr, cdasQueryValues)
+        
+        // Insert each ownership object into CdaOwnership table
+        await transaction(ownershipQueries)
+
         return res.status(200).json({ id: cdaModel.id })
       } catch (error) {
         console.error(error)
