@@ -1,14 +1,20 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { NextPage } from "next"
 import { useRouter } from "next/router"
+import { Window as KeplrWindow } from '@keplr-wallet/types'
+import { SigningCosmosClient } from '@cosmjs/launchpad'
 
-import api from "../lib/utils/api-client"
-
-import styles from '../styles/Home.module.css'
-import { fetchOrSetUser, updateUser } from "../lib/utils/cookies"
 import User from "../models/User"
+import { fetchOrSetUser, updateUser } from "../lib/utils/cookies"
+import api from "../lib/utils/api-client"
+import styles from '../styles/Home.module.css'
+import { chainConfig, validateAddress } from "../lib/chain"
 
 const SignUp: NextPage = () => {
+
+    // Keplr Helpers
+    const [wallet, setWallet] = useState<SigningCosmosClient | undefined>()
+    const [keplrWindow, setKeplrWindow] = useState<Window & KeplrWindow>()
 
     // Nav hooks
     const router = useRouter()
@@ -23,33 +29,23 @@ const SignUp: NextPage = () => {
     const [birthdate, setBirthdate] = useState('')
 
     // TODO: Ensure user is authenticated
-    
 
     const formatBirthdate = (rawDate: string) => {
         // TODO: Ensure the birthdate is in the correct format
         setBirthdate(rawDate)
     }
 
-    const saveUser = () => {
-        let user = fetchOrSetUser()
-        
-        user.wallet_address = "archive1ps3rtvcqw3p9megamtg8mrq3nn7fvzw2de6e62"
-        user.street_address = address
-        user.birth_date = birthdate
-        user.email = email
-        user.legal_name = name
-        
-        updateUser(user)
-    }
-
-    const createAccount = async (e: any) => {
+    const submitForm = async (e: any) => {
         e.preventDefault()
 
-        // TODO: 
-            // Ensure fields are correctly set
+        if (!wallet || !keplrWindow) { return }
 
+        const isUserValidated = await validateAddress(wallet, keplrWindow)
+        if (!isUserValidated) { return }
+
+        // If we make it to here, we are fully authenticated
         const user: User = {
-            wallet_address: "archive19vqyuq2pygl4wyay0c8t7ywryh5uajv2ulpqta", 
+            wallet_address: wallet.signerAddress, 
             legal_name: name, 
             birth_date: birthdate, 
             street_address: address, 
@@ -60,15 +56,58 @@ const SignUp: NextPage = () => {
         }
 
         const res = await api.post('user', { user })
-                            // .then(res => res.json())
-
-        saveUser()
-
+        updateUser(user)
+        
         if (res.ok) {
             router.push('/cda/upload')
         } else {
             alert("User could not be created. Please try again later.")
         }
+    }
+
+    const configureKeplr = async () => {
+        if (typeof keplrWindow === 'undefined') { return }
+
+        // If `window.getOfflineSigner` or `window.keplr` is null, Keplr extension may be not installed on browser.
+        if (!keplrWindow.keplr || !keplrWindow.getOfflineSigner) { return }
+        
+        try {
+            await keplrWindow.keplr.experimentalSuggestChain(chainConfig)
+            await keplrWindow.keplr.enable('casper-1')
+            const signer = keplrWindow.keplr.getOfflineSigner('casper-1')
+            const accounts = await signer.getAccounts()
+            const cosmJs = new SigningCosmosClient(
+                "http://0.0.0.0:1317",
+                accounts[0].address,
+                signer,
+            )
+            setWallet(cosmJs)
+        } catch (error) {
+            console.error(error)
+            alert("Failed to suggest the chain")
+        }
+    }
+
+    // Set keplrWindow on initial load
+    useEffect(() => {
+        if (!keplrWindow?.keplr) {
+            console.log("setting keplrWindow")
+            setKeplrWindow(window as Window & KeplrWindow )
+            console.log("set keplrWindow")
+        }
+    }, [])
+
+    // Configure Keplr client once keplrWindow is set
+    useEffect(() => {
+        if (typeof keplrWindow !== 'undefined') {
+            console.log("Configuring Keplr")
+            configureKeplr().then(() => console.log("Configured Keplr"))
+        }
+    }, [keplrWindow])
+
+    // Prevent user from accessing without a wallet
+    if (!wallet) {
+        return <h1>Please install Keplr before continuing</h1>
     }
     
     return (
@@ -83,7 +122,7 @@ const SignUp: NextPage = () => {
 
             <form 
                 className={styles.form}
-                onSubmit={(e) => createAccount(e)}
+                onSubmit={(e) => submitForm(e)}
             >
                 
                 {/* TODO:
