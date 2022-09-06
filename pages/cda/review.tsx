@@ -3,6 +3,8 @@ import { NextPage } from "next";
 import { useRouter } from "next/router";
 
 import { Document, Page, pdfjs } from "react-pdf";
+import { SigningCosmosClient } from "@cosmjs/launchpad";
+import { Window as KeplrWindow } from '@keplr-wallet/types'
 
 import { fillContract } from "../../lib/utils/pdf";
 import styles from "../../styles/Home.module.css";
@@ -16,10 +18,16 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 
 const ReviewPage: NextPage = () => {
     const router = useRouter()
+
+    // Keplr Helpers
+    const [wallet, setWallet] = useState<SigningCosmosClient | undefined>()
+    const [keplrWindow, setKeplrWindow] = useState<Window & KeplrWindow>()
+
+    // PDF state variables
+    // TODO: Manage these data structures better
     const [pdfUrl, setPdfUrl] = useState<string | undefined>()
     const [pdfString, setPdfString] = useState<string | undefined>()
     const [pdfBytes, setPdfBytes] = useState<Uint8Array | undefined>()
-    // const [pdf]
     const [pageCount, setPageCount] = useState<number>()
 
     useEffect(() => {
@@ -50,14 +58,10 @@ const ReviewPage: NextPage = () => {
             throw new Error("pdf bytes not set!")
         }
 
-        console.log("Uploading to IPFS & S3")
-
         const ipfs = await getIPFSClient()
         const ipfsPromise = ipfs.add(pdfBytes, { pin: true })
         const s3Promise = api.post('/cda/contract', { pdfString })
         const [ipfsResult, s3Response] = await Promise.all([ipfsPromise, s3Promise])
-
-        console.log("IPFS & S3 responded")
         
         if (!s3Response.ok) { 
             throw new Error("s3 upload failed!")
@@ -69,22 +73,18 @@ const ReviewPage: NextPage = () => {
         cda.s3Key = s3Json.key as string
         cda.contractCid = ipfsResult.cid.toString()
 
-        console.log("CDA Payload:", cda)
-
         // Store CDA in db
         const dbResponse = await api.post('/cda/cda', { cda })
 
         if (!dbResponse.ok) {
-            throw new Error("mongodb post failed")
+            throw new Error("postgres post failed")
         }
 
         const mongoJson = await dbResponse.json()
         const cdaId = mongoJson.id as string
 
-        console.log("cdaId:", cdaId)
-
-        // TODO:
-            // Sign with wallet
+        // TODO: Sign with wallet
+        
     }
 
     const onDocumentLoadSuccess = (numPages: number) => {
