@@ -1,9 +1,9 @@
+import { Ownership } from "../lib/chain/generated/archive/archive.cda"
 import User from "./User"
 
 export type LocalCDA = {
   creatorWalletAddress: string
   propertyCid: string
-  ipOwnership: number // renamed from copyrightOwnership
   owners: Ownership[]
   s3Key: string
   contractCid: string
@@ -14,7 +14,6 @@ export function createCda(): LocalCDA {
   return {
     creatorWalletAddress: '',
     propertyCid: '',
-    ipOwnership: 0,
     owners: [],
     s3Key: '',
     contractCid: '',
@@ -33,9 +32,4 @@ export function createUser(): User {
     birth_date: '',
     email: '',
   }
-}
-
-export type Ownership = {
-  walletAddress: string
-  ownershipPerc: number
 }

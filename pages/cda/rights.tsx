@@ -3,28 +3,20 @@ import { NextPage } from "next";
 import { useRouter } from "next/router";
 
 import { fetchOrSetTempCDA, updateTempCDA } from "../../lib/utils/cookies";
-import { Ownership } from "../../models/helpers";
+import { Ownership } from "../../lib/chain/generated/archive/archive.cda";
 import styles from "../../styles/Home.module.css";
+import css from "styled-jsx/css";
 
 const RightsPage: NextPage = () => {
     const router = useRouter()
 
     // State variables
-    const [cdaOwnershipPerc, setCdaOwnershipPerc] = useState<number>()
     // TODO: prepopulate with creator's wallet address
     const [owners, setOwners] = useState<Ownership[]>([])
 
     // New owner state variables
     const [newWalletAddress, setNewWalletAddress] = useState<string | undefined>()
     const [newOwnershipPerc, setNewOwnershipPerc] = useState<number | undefined>()
-
-
-    const handleSetTotalOwnership = (value: string) => {
-        const amount = parseInt(value, 10)
-        if (amount > 0 && amount <= 100) {
-            setCdaOwnershipPerc(amount)
-        }
-    }
 
     const handleAddOwner = () => {
         // TODO: ensure the owner's address is contained in `owners`
@@ -33,8 +25,8 @@ const RightsPage: NextPage = () => {
         if (!newWalletAddress || !newOwnershipPerc) { return }
 
         const newOwner: Ownership = {
-            walletAddress: newWalletAddress,
-            ownershipPerc: newOwnershipPerc,
+            owner: newWalletAddress,
+            ownership: newOwnershipPerc,
         }
         // Ensure both required fields are correctish
         if (!checkWalletAddr(newWalletAddress) || !checkNewOwner(newOwner, owners)) { return }
@@ -56,10 +48,8 @@ const RightsPage: NextPage = () => {
         const cda = fetchOrSetTempCDA()
 
         // Ensure fields are set
-        if (!cdaOwnershipPerc) { return }
         if (!owners || owners.length < 1) { return }
-
-        cda.ipOwnership = cdaOwnershipPerc
+        
         cda.owners = owners
 
         updateTempCDA(cda)
@@ -96,22 +86,8 @@ const RightsPage: NextPage = () => {
 
     return (
         <div className={styles.main}>
-            <h1>Define your copyright distribution below</h1>
-            
-            {/* Data entry section */}
-            <div
-                className={styles.container}
-            >
-
-                {/* Total copyright ownership */}
-                <label htmlFor="total">Copyright ownership of CDA</label>
-                <input 
-                    name="total"
-                    placeholder="100%"
-                    className={styles.input}
-                    value={cdaOwnershipPerc}
-                    onChange={(e) => handleSetTotalOwnership(e.target.value)}
-                />
+            <div className={styles.container}>
+                <h1>Define your copyright distribution below</h1>
 
                 {/* Existing parties */}
                 {owners.map( (ownership, idx) => (
@@ -119,11 +95,11 @@ const RightsPage: NextPage = () => {
                         className={styles.container}
                         key={idx}
                     >
-                        <label htmlFor={`owner-${idx}`}>CDA ownership for {ownership.walletAddress}</label>
+                        <label htmlFor={`owner-${idx}`}>CDA ownership for {ownership.owner}</label>
                         <input 
                             name={`owner-${idx}`}
                             className={styles.input}
-                            value={ownership.ownershipPerc}
+                            value={ownership.ownership}
                             disabled={true}
                         />
                     </div>
@@ -139,8 +115,6 @@ const RightsPage: NextPage = () => {
                 >
                     Continue
                 </button>
-
-                
             </div>
         </div>
     )
@@ -167,12 +141,12 @@ const checkWalletAddr = (address: string): boolean => {
  * @returns true if ok, false if invalid
  */
 const checkNewOwner = (newOwner: Ownership, owners: Ownership[]) => {
-    let ownerWalletSet = new Set<string>([newOwner.walletAddress])
-    let totalPerc = newOwner.ownershipPerc
+    let ownerWalletSet = new Set<string>([newOwner.owner])
+    let totalPerc = newOwner.ownership
 
     for (const owner of owners) {
-        ownerWalletSet.add(owner.walletAddress)
-        totalPerc += owner.ownershipPerc
+        ownerWalletSet.add(owner.owner)
+        totalPerc += owner.ownership
     }
 
     // Ensure we do not have an ownership % above 100

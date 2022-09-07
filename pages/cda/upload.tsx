@@ -27,7 +27,6 @@ const AssetUploadPage: NextPage = () => {
 
         cda.status = "draft"
         cda.propertyCid = cid
-        cda.creatorWalletAddress = "archive19vqyuq2pygl4wyay0c8t7ywryh5uajv2ulpqta"
 
         updateTempCDA(cda)
     }

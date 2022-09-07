@@ -1,8 +1,12 @@
 import { PDFDocument } from 'pdf-lib'
 
-import { Ownership } from "../../models/helpers"
+import { Ownership } from '../chain/generated/archive/archive.cda'
 import { fetchOrSetTempCDA, fetchOrSetUser } from "./cookies"
 
+/**
+ * Popoulates the template legal contract with relevant metadata from `user` and `cda` cookies.
+ * @returns the updated PDF document as bytes
+ */
 const fillContract = async () => {
   const cda = fetchOrSetTempCDA()
   const user = fetchOrSetUser()
@@ -10,15 +14,12 @@ const fillContract = async () => {
   // TODO: Validate user fields are correctly set
 
   // Validate fields are correctly set
-  if (user.walletAddress !== cda.creatorWalletAddress) { return }
-  if (!validateCdaOwnership(cda.copyrightOwnership)) { return }
   if (!validateWalletAddress(cda.creatorWalletAddress)) { return }
   if (!validateOwners(cda.owners)) { return }
   if (!validateCid(cda.propertyCid)) { return }
 
   // Set necessary fields
   cda.status = 'pending'
-  cda.createdAt = new Date().toISOString()
   
   // Load template PDF from local storage
   const res = await fetch('/contract-template.pdf')
@@ -35,24 +36,27 @@ const fillContract = async () => {
   const cdaOwnershipField = form.getTextField('cda.ownership')
 
   // Set the text for each field
-  artistWalletField.setText(cda.creatorWalletAddress)
-  artistNameField.setText(user.legalName)
-  artistAddressField.setText(user.address)
+  artistWalletField.setText(user.wallet_address)
+  artistNameField.setText(user.legal_name)
+  artistAddressField.setText(user.street_address)
   propertyCidField.setText(cda.propertyCid)
-  cdaOwnershipField.setText(cda.copyrightOwnership!.toString()) // can force unwrap because of the validateCdaOwnership call before
+  cdaOwnershipField.setText("100%")
 
   return pdfDoc.save()
 }
 
-const validateCdaOwnership = (ownership: number | undefined) => {
-  // Ensure ownership exists
-  if (!ownership) { return false}
-  // Ensure ownership is a valid amount
-  if (ownership > 100 || ownership <= 0) { return false }
-
-  // TODO: Ensure ownership is a reasonable decimal
-
-  return true
+/**
+ * Popoulates the legal contract with the CDA's ID
+ * @returns the updated PDF document as bytes
+ */
+const fillContractCdaId = async (cdaId: string, pdfBytes: Uint8Array) => {
+  const pdfDoc = await PDFDocument.load(pdfBytes)
+  pdfDoc
+    .getForm()
+    .getTextField('cda')
+    .setText(cdaId)
+  
+  return pdfDoc.save()
 }
 
 const validateWalletAddress = (address: string | undefined) => {
@@ -74,8 +78,8 @@ const validateOwners = (owners: Ownership[] | undefined) => {
   let totalPerc = 0
 
   for (const owner of owners) {
-    ownerWalletSet.add(owner.walletAddress)
-    totalPerc += owner.ownershipPerc
+    ownerWalletSet.add(owner.owner)
+    totalPerc += owner.ownership
   }
 
   // Ensure the total ownership % is 100
@@ -93,4 +97,4 @@ const validateCid = (cid: string | undefined) => {
   return true
 }
 
-export { fillContract }
+export { fillContract, fillContractCdaId }

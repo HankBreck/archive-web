@@ -52,7 +52,7 @@ export default async function handler(
         // This feels silly
         return {
           text: "INSERT INTO CdaOwnership VALUES ($1, $2, $3)",
-          values: [cdaModel.id, ownership.walletAddress, ownership.ownershipPerc],
+          values: [cdaModel.id, ownership.owner, ownership.ownership],
         }
       })
 
@@ -92,7 +92,6 @@ const checkCdaFields = (cda: LocalCDA) => {
   let result = new Set<string>()
   if (!cda.creatorWalletAddress) { result.add("creatorWalletAddress") }
   if (!cda.propertyCid) { result.add("propertyCid") }
-  if (!cda.ipOwnership) { result.add("ipOwnership") }
   if (!cda.owners) { result.add("owners") }
   if (cda.owners.length < 1) { result.add("owners") }
   if (!cda.s3Key) { result.add("s3Key") }

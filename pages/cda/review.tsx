@@ -6,16 +6,17 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { SigningCosmosClient } from "@cosmjs/launchpad";
 import { Window as KeplrWindow } from '@keplr-wallet/types'
 
-import { fillContract } from "../../lib/utils/pdf";
+import { fillContract, fillContractCdaId } from "../../lib/utils/pdf";
 import styles from "../../styles/Home.module.css";
 import { getIPFSClient } from "../../lib/utils/ipfs";
 import api from "../../lib/utils/api-client";
 import { fetchOrSetTempCDA } from "../../lib/utils/cookies";
 import { bytesToUtf8 } from "../../lib/utils/binary"
 import { chainConfig } from "../../lib/chain/chain";
-import { MsgCreateCDA } from "../../lib/chain/generated/archive/archive.cda/module/types/cda/tx";
+import { MsgCreateCDA, MsgCreateCDAResponse } from "../../lib/chain/generated/archive/archive.cda/module/types/cda/tx";
 import { Ownership } from "../../lib/chain/generated/archive/archive.cda";
 import { txClient } from "../../lib/chain/generated/archive/archive.cda/module"
+import { StdFee } from "@cosmjs/stargate";
 
 // Set global PDF worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
@@ -51,6 +52,13 @@ const ReviewPage: NextPage = () => {
             setPdfBytes(bytes)
         }
         fetchContract()
+        
+        // Load the Keplr window
+        if (!keplrWindow?.keplr) {
+            console.log("setting keplrWindow")
+            setKeplrWindow(window as Window & KeplrWindow )
+            console.log("set keplrWindow")
+        }
     }, [])
 
     const handleNext = () => {
@@ -63,7 +71,9 @@ const ReviewPage: NextPage = () => {
             throw new Error("pdf bytes not set!")
         }
         if (!keplrWindow || // TODO: Display popup to download or connect with Keplr
-            !keplrWindow.keplr) { return }
+            !keplrWindow.keplr) { 
+                throw new Error("Keplr window missing!")
+             }
 
         // Upload PDF to IPFS and S3
         const ipfs = await getIPFSClient()
@@ -86,9 +96,6 @@ const ReviewPage: NextPage = () => {
             throw new Error("postgres post failed")
         }
 
-        const dbJson = await dbResponse.json()
-        // const cdaId = dbJson.id as string
-
         // TODO: Figure out best way to do this.
         await keplrWindow.keplr.experimentalSuggestChain(chainConfig)
         await keplrWindow.keplr.enable('casper-1')
@@ -98,27 +105,52 @@ const ReviewPage: NextPage = () => {
 
         const msg: MsgCreateCDA = {
             creator: account.address,
-            cid: "QmSrnQXUtGqsVRcgY93CdWXf8GPE9Zjj7Tg3SZUgLKDN5W",
-            ownership: [{
-                owner: account.address,
-                ownership: 100,
-            } as Ownership],
-            expiration: 4818163585000,
+            cid: cda.contractCid,
+            ownership: cda.owners as Ownership[],
+            expiration: 4818163585000, // TODO: Add field to set contract terms
         }
 
-        // TODO: Add message to sign the CDA
+        // TODO: Add message for other parties to sign the CDA
+        console.log(account.address)
 
         const client = await txClient(signer, {addr: "http://localhost:26657"})
         const msgs = [client.msgCreateCDA(msg)]
-        const tx = await client.signAndBroadcast(msgs) 
+        const fee = {
+            amount: [],
+            gas: "75000"
+        } as StdFee
+        const tx = await client.signAndBroadcast(msgs, {fee})
+
         
         // Check if the transaction succeeded
         if (tx.code != 0) {
-            alert("Issue broadcasting transaction...")
+            console.log(tx.rawLog)
+            console.log(tx.code)
+            console.log(tx.data)
+            throw new Error("Issue broadcasting transaction.")
         }
-        console.log("Success! Tx hash:", tx.transactionHash)
-        
 
+
+        // TODO: save the new bytes
+        // TODO: Figure out how to get cda ID from Cosmos
+
+
+
+        console.log("TX", tx)
+        console.log("TX raw log", tx.rawLog)
+
+        // Ensure msg response was returned
+        // if (!tx.data) {
+        //     throw new Error("Msg response data expected.")
+        // }
+        // const msgRes = MsgCreateCDAResponse.decode(tx.data[0].data)
+        console.log("Success! CDA ID:", tx.data)
+        
+        // const newPdfBytes = await fillContractCdaId(msgRes.id.toString()!, pdfBytes)
+        // setPdfUrl(
+        //     window.URL.createObjectURL(new Blob([newPdfBytes], { type: 'application/pdf' }))
+        // )
+        
     }
 
     const onDocumentLoadSuccess = (numPages: number) => {

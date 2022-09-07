@@ -29,7 +29,7 @@ export const validateAddress = async (walletAddr: string, windowKeplr: Window & 
 export const chainConfig = {
   chainId: 'casper-1',
   chainName: 'archive',
-  rpc: 'http://0.0.0.0:1317',
+  rpc: 'http://0.0.0.0:25567',
   rest: 'http://0.0.0.0:1317',
   stakeCurrency: {
       coinDenom: 'stake',
