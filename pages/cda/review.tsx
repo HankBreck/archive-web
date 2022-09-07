@@ -12,6 +12,10 @@ import { getIPFSClient } from "../../lib/utils/ipfs";
 import api from "../../lib/utils/api-client";
 import { fetchOrSetTempCDA } from "../../lib/utils/cookies";
 import { bytesToUtf8 } from "../../lib/utils/binary"
+import { chainConfig } from "../../lib/chain/chain";
+import { MsgCreateCDA } from "../../lib/chain/generated/archive/archive.cda/module/types/cda/tx";
+import { Ownership } from "../../lib/chain/generated/archive/archive.cda";
+import { txClient } from "../../lib/chain/generated/archive/archive.cda/module"
 
 // Set global PDF worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
@@ -54,15 +58,18 @@ const ReviewPage: NextPage = () => {
     }
 
     const submit = async () => {
+        // Ensure pdf uploaded and wallet connected
         if (!pdfBytes) {
             throw new Error("pdf bytes not set!")
         }
+        if (!keplrWindow || // TODO: Display popup to download or connect with Keplr
+            !keplrWindow.keplr) { return }
 
+        // Upload PDF to IPFS and S3
         const ipfs = await getIPFSClient()
         const ipfsPromise = ipfs.add(pdfBytes, { pin: true })
         const s3Promise = api.post('/cda/contract', { pdfString })
         const [ipfsResult, s3Response] = await Promise.all([ipfsPromise, s3Promise])
-        
         if (!s3Response.ok) { 
             throw new Error("s3 upload failed!")
         }
@@ -73,18 +80,45 @@ const ReviewPage: NextPage = () => {
         cda.s3Key = s3Json.key as string
         cda.contractCid = ipfsResult.cid.toString()
 
-        // Store CDA in db
+        // Store CDA in Postgres
         const dbResponse = await api.post('/cda/cda', { cda })
-
         if (!dbResponse.ok) {
             throw new Error("postgres post failed")
         }
 
-        const mongoJson = await dbResponse.json()
-        const cdaId = mongoJson.id as string
+        const dbJson = await dbResponse.json()
+        // const cdaId = dbJson.id as string
 
-        // TODO: Sign with wallet
+        // TODO: Figure out best way to do this.
+        await keplrWindow.keplr.experimentalSuggestChain(chainConfig)
+        await keplrWindow.keplr.enable('casper-1')
+
+        const signer = keplrWindow.keplr.getOfflineSigner('casper-1')
+        const [account] = await signer.getAccounts()
+
+        const msg: MsgCreateCDA = {
+            creator: account.address,
+            cid: "QmSrnQXUtGqsVRcgY93CdWXf8GPE9Zjj7Tg3SZUgLKDN5W",
+            ownership: [{
+                owner: account.address,
+                ownership: 100,
+            } as Ownership],
+            expiration: 4818163585000,
+        }
+
+        // TODO: Add message to sign the CDA
+
+        const client = await txClient(signer, {addr: "http://localhost:26657"})
+        const msgs = [client.msgCreateCDA(msg)]
+        const tx = await client.signAndBroadcast(msgs) 
         
+        // Check if the transaction succeeded
+        if (tx.code != 0) {
+            alert("Issue broadcasting transaction...")
+        }
+        console.log("Success! Tx hash:", tx.transactionHash)
+        
+
     }
 
     const onDocumentLoadSuccess = (numPages: number) => {

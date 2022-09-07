@@ -11,10 +11,7 @@ import { updateUser } from "../lib/utils/cookies"
 import api from "../lib/utils/api-client"
 import styles from '../styles/Home.module.css'
 // import { AminoMsgCreateCDA, chainConfig, validateAddress } from "../lib/chain/chain"
-import { MsgCreateCDA } from "../lib/chain/generated/archive/archive.cda/module/types/cda/tx"
-import { txClient } from "../lib/chain/generated/archive/archive.cda/module"
-import { chainConfig } from "../lib/chain/chain"
-import { Ownership } from "../lib/chain/generated/archive/archive.cda"
+import { chainConfig, validateAddress } from "../lib/chain/chain"
 
 const SignUp: NextPage = () => {
 
@@ -42,12 +39,11 @@ const SignUp: NextPage = () => {
 
     const submitForm = async (e: any) => {
         e.preventDefault()
+        
+        // TODO: Validate form fields
 
         if (!keplrWindow ||
             !keplrWindow.keplr) { return }
-
-        // const isUserValidated = await validateAddress(wallet, keplrWindow)
-        // if (!isUserValidated) { return }
 
         // TODO: Figure out best way to do this.
         await keplrWindow.keplr.experimentalSuggestChain(chainConfig)
@@ -56,26 +52,11 @@ const SignUp: NextPage = () => {
         const signer = keplrWindow.keplr.getOfflineSigner('casper-1')
         const [account] = await signer.getAccounts()
 
-        const msg: MsgCreateCDA = {
-            creator: account.address,
-            cid: "QmSrnQXUtGqsVRcgY93CdWXf8GPE9Zjj7Tg3SZUgLKDN5W",
-            ownership: [{
-                owner: account.address,
-                ownership: 100,
-            } as Ownership],
-            expiration: 4818163585000,
-        }
-
-        const client = await txClient(signer, {addr: "http://localhost:26657"})
-        const msgs = [client.msgCreateCDA(msg)]
-        const tx = await client.signAndBroadcast(msgs) 
-        
-        // Check if the transaction succeeded
-        if (tx.code != 0) {
-            alert("Issue broadcasting transaction...")
-        }
-        console.log("Success! Tx hash:", tx.transactionHash)
-        
+        // Validate that the user owns their wallet
+        const isUserValidated = await validateAddress(account.address, keplrWindow)
+        if (!isUserValidated) { 
+            throw new Error("Wallet could not be validated.")
+         }
 
         // If we make it to here, we are fully authenticated
         const user: User = {
@@ -89,10 +70,10 @@ const SignUp: NextPage = () => {
             email,
         }
 
-        const res = await api.post('user', { user })
-        updateUser(user)
-
+        const res = await api.post('/user', { user })
+        
         if (res.ok) {
+            updateUser(user)
             router.push('/cda/upload')
         } else {
             alert("User could not be created. Please try again later.")
@@ -108,7 +89,7 @@ const SignUp: NextPage = () => {
         }
     }, [])
 
-    // Prevent user from accessing without a wallet
+    // Require Keplr
     if (!keplrWindow) {
         return (
         <h1>Please install Keplr before continuing</h1>
@@ -129,10 +110,6 @@ const SignUp: NextPage = () => {
                 className={styles.form}
                 onSubmit={(e) => submitForm(e)}
             >
-                
-                {/* TODO:
-                        Capture wallet address
-                */}
                 
                 {/* Full legal name */}
                 <label htmlFor="name">Legal Name</label>

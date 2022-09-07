@@ -22,7 +22,7 @@ if (!dbHost) {
   throw new Error("dbHost envirnonment variable required.")
 }
 
-let pool = new Pool({
+let pool: Pool = new Pool({
   user: dbUser,
   database: dbName,
   password: dbPass,
@@ -31,18 +31,37 @@ let pool = new Pool({
 })
 
 // const dbConnect = async () => {
-//   if (pool) {
-//     pool = new Pool()
+//   if (!pool) {
+//     console.log("connecting to pool")
+//     pool = new Pool({
+//       user: dbUser,
+//       database: dbName,
+//       password: dbPass,
+//       port: parseInt(dbPort),
+//       host: dbHost,
+//     })
 //   }
-//   await pool.connect()
-//   return pool
+//   console.log("conneced to pool!")
+//   // return pool
 // }
 
-const query = <R = any>(
+const query = async <R = any>(
   text: string, 
   values?: any, 
 ) => {
-  return pool.query<R>(text, values)
+  let result: R[] | undefined
+  const client = await pool.connect()
+
+  try {
+    const res = await client.query<R>(text, values)
+    result = res.rows
+  } catch (error) {
+    console.error(error)
+  } finally {
+    client.release()
+  }
+  
+  return result
 }
 
 /**

@@ -19,7 +19,6 @@ export default async function handler(
   res: NextApiResponse,
 ) {
   const { method } = req // refactor
-
   let queryStr: string
 
   switch (method) {
@@ -33,16 +32,16 @@ export default async function handler(
       const { wallet_address } = req.query
 
       // Fetch user from db
-      const queryResult = await query<User>(
+      const rows = await query<User>(
         "SELECT * from Users WHERE wallet_address = $1",
         [wallet_address as string]
       )
 
-      if (queryResult.rowCount > 1) {
+      if (!rows || rows.length > 1) {
         return res.status(400).json({ message: "Duplicate users found."})
       }
 
-      return res.status(200).json({ user: queryResult.rows[0] })
+      return res.status(200).json({ user: rows[0] })
 
     case 'POST':
       // Create a new user
@@ -70,7 +69,10 @@ export default async function handler(
       const queryValues = [user.wallet_address, user.legal_name, user.street_address, user.city, user.state, user.zipcode, birth_date, user.email, user.created_at]
       
       try {
-        await query(queryStr, queryValues)
+        const queryRes = await query(queryStr, queryValues)
+        if (!queryRes) {
+          throw new Error()
+        }
         return res.status(200).json({})
       } catch (error) {
         console.error(error)

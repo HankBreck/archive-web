@@ -1,16 +1,21 @@
 import { SigningCosmosClient } from '@cosmjs/launchpad'
-import { EncodeObject } from '@cosmjs/proto-signing'
 import { Window as KeplrWindow } from '@keplr-wallet/types'
 
 // Helper functions
 
-export const validateAddress = async (wallet: SigningCosmosClient, windowKeplr: Window & KeplrWindow) => {
-  if (!wallet || !windowKeplr || !windowKeplr.keplr) { return }
+/**
+ * Requests user to sign arbitrary bytes offline using Keplr wallet
+ * @param walletAddr the user's wallet address as a string
+ * @param windowKeplr the Keplr Window instace
+ * @returns true if the wallet was validated, false if not or an error or occured 
+ */
+export const validateAddress = async (walletAddr: string, windowKeplr: Window & KeplrWindow) => {
+  if (walletAddr == "" || !windowKeplr || !windowKeplr.keplr) { return }
 
   try {
     const arb = "This is a random ass test string. If you are seeing this, Hank fucked up."
-    const sig = await windowKeplr.keplr.signArbitrary('casper-1', wallet.signerAddress, arb)
-    const success = await windowKeplr.keplr.verifyArbitrary('casper-1', wallet.signerAddress, arb, sig)
+    const sig = await windowKeplr.keplr.signArbitrary('casper-1', walletAddr, arb)
+    const success = await windowKeplr.keplr.verifyArbitrary('casper-1', walletAddr, arb, sig)
     return success
   } catch (error) {
     console.error(error)
