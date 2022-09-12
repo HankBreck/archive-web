@@ -2,15 +2,10 @@ import { useEffect, useState } from "react"
 import { NextPage } from "next"
 import { useRouter } from "next/router"
 import { Window as KeplrWindow } from '@keplr-wallet/types'
-import { AccountData } from '@cosmjs/launchpad'
-import { Coin, defaultRegistryTypes, SigningStargateClient, StdFee } from '@cosmjs/stargate'
-import { Registry } from "@cosmjs/proto-signing"
-
 import User from "../models/User"
 import { updateUser } from "../lib/utils/cookies"
 import api from "../lib/utils/api-client"
 import styles from '../styles/Home.module.css'
-// import { AminoMsgCreateCDA, chainConfig, validateAddress } from "../lib/chain/chain"
 import { chainConfig, validateAddress } from "../lib/chain/chain"
 
 const SignUp: NextPage = () => {

@@ -53,7 +53,7 @@ const fillContractCdaId = async (cdaId: string, pdfBytes: Uint8Array) => {
   const pdfDoc = await PDFDocument.load(pdfBytes)
   pdfDoc
     .getForm()
-    .getTextField('cda')
+    .getTextField('cda.id')
     .setText(cdaId)
   
   return pdfDoc.save()

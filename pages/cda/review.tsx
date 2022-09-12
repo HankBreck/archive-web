@@ -3,19 +3,20 @@ import { NextPage } from "next";
 import { useRouter } from "next/router";
 
 import { Document, Page, pdfjs } from "react-pdf";
-import { SigningCosmosClient } from "@cosmjs/launchpad";
 import { Window as KeplrWindow } from '@keplr-wallet/types'
 
 import { fillContract, fillContractCdaId } from "../../lib/utils/pdf";
-import styles from "../../styles/Home.module.css";
 import { getIPFSClient } from "../../lib/utils/ipfs";
 import api from "../../lib/utils/api-client";
 import { fetchOrSetTempCDA } from "../../lib/utils/cookies";
 import { bytesToUtf8 } from "../../lib/utils/binary"
-import { chainConfig } from "../../lib/chain/chain";
-import { MsgCreateCDA, MsgCreateCDAResponse } from "../../lib/chain/generated/archive/archive.cda/module/types/cda/tx";
+
+import { queryClient, txClient } from "../../lib/chain/generated/archive/archive.cda/module"
+import { MsgCreateCDA } from "../../lib/chain/generated/archive/archive.cda/module/types/cda/tx";
 import { Ownership } from "../../lib/chain/generated/archive/archive.cda";
-import { txClient } from "../../lib/chain/generated/archive/archive.cda/module"
+import { chainConfig } from "../../lib/chain/chain";
+
+import styles from "../../styles/Home.module.css";
 import { StdFee } from "@cosmjs/stargate";
 
 // Set global PDF worker
@@ -25,7 +26,6 @@ const ReviewPage: NextPage = () => {
     const router = useRouter()
 
     // Keplr Helpers
-    const [wallet, setWallet] = useState<SigningCosmosClient | undefined>()
     const [keplrWindow, setKeplrWindow] = useState<Window & KeplrWindow>()
 
     // PDF state variables
@@ -73,11 +73,13 @@ const ReviewPage: NextPage = () => {
         if (!keplrWindow || // TODO: Display popup to download or connect with Keplr
             !keplrWindow.keplr) { 
                 throw new Error("Keplr window missing!")
-             }
+        }
+
+        // TODO: Ensure cda.CreatorWalletAddress === account.address
 
         // Upload PDF to IPFS and S3
         const ipfs = await getIPFSClient()
-        const ipfsPromise = ipfs.add(pdfBytes, { pin: true })
+        const ipfsPromise = ipfs.add(pdfBytes, { pin: true, timeout: 5000 }) // 5 second timeout
         const s3Promise = api.post('/cda/contract', { pdfString })
         const [ipfsResult, s3Response] = await Promise.all([ipfsPromise, s3Promise])
         if (!s3Response.ok) { 
@@ -97,6 +99,7 @@ const ReviewPage: NextPage = () => {
         }
 
         // TODO: Figure out best way to do this.
+        // TODO: Probably want to connect before uploading to postgres
         await keplrWindow.keplr.experimentalSuggestChain(chainConfig)
         await keplrWindow.keplr.enable('casper-1')
 
@@ -117,40 +120,45 @@ const ReviewPage: NextPage = () => {
         const msgs = [client.msgCreateCDA(msg)]
         const fee = {
             amount: [],
-            gas: "75000"
+            // TODO: Don't hardcode gas fees
+            gas: "80000",
         } as StdFee
-        const tx = await client.signAndBroadcast(msgs, {fee})
+        const result = await client.signAndBroadcast(msgs, {fee})
 
-        
         // Check if the transaction succeeded
-        if (tx.code != 0) {
-            console.log(tx.rawLog)
-            console.log(tx.code)
-            console.log(tx.data)
+        if (result.code != 0) {
+            console.log(result)
             throw new Error("Issue broadcasting transaction.")
         }
 
+        const qClient = await queryClient()
 
-        // TODO: save the new bytes
-        // TODO: Figure out how to get cda ID from Cosmos
+        // What is the case when cda.CreatorWalletAddress != account.address
+        // What is the case when a wallet is used create two CDAs at the same time?
+        const res = await qClient.queryCdasOwned(account.address, {
+            "pagination.limit": '1',
+            "pagination.reverse": true,
+        })
+        if (res.status != 200) {
+            throw new Error("CDA Query failed! Unable to find the CDA id")
+        }
+        const {ids} = res.data
+        if (ids?.length != 1) {
+            throw new Error("CDA Query failed! Unable to find the CDA id")
+        }
+
+        const cdaId = ids[0]
+        console.log("CDA Id", cdaId)
 
 
+        // Should this be the TX hash?
+            // cdaId can be changed, but txhash is immutable by consensus
+        const newPdfBytes = await fillContractCdaId(cdaId, pdfBytes)
+        setPdfUrl(
+            window.URL.createObjectURL(new Blob([newPdfBytes], { type: 'application/pdf' }))
+        )
 
-        console.log("TX", tx)
-        console.log("TX raw log", tx.rawLog)
-
-        // Ensure msg response was returned
-        // if (!tx.data) {
-        //     throw new Error("Msg response data expected.")
-        // }
-        // const msgRes = MsgCreateCDAResponse.decode(tx.data[0].data)
-        console.log("Success! CDA ID:", tx.data)
-        
-        // const newPdfBytes = await fillContractCdaId(msgRes.id.toString()!, pdfBytes)
-        // setPdfUrl(
-        //     window.URL.createObjectURL(new Blob([newPdfBytes], { type: 'application/pdf' }))
-        // )
-        
+        // TODO: save the new bytes to S3
     }
 
     const onDocumentLoadSuccess = (numPages: number) => {
