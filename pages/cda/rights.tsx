@@ -58,22 +58,26 @@ const RightsPage: NextPage = () => {
     const renderNewOwnerForm = () => {
         return (
             <div className={styles.container}>
-                <label htmlFor="wallet-addr">Wallet Address</label>
-                <input 
-                    name="wallet-addr"
-                    placeholder="archive1ps3rtvcqw3p9megamtg8mrq3nn7fvzw2de6e62"
-                    className={styles.input}
-                    value={newWalletAddress || ''}
-                    onChange={(e) => setNewWalletAddress(e.target.value.trim())}
-                />
-                <label htmlFor="ownership">Percent Ownership</label>
-                <input 
-                    name="ownership"
-                    placeholder="100"
-                    className={styles.input}
-                    value={newOwnershipPerc || ''}
-                    onChange={(e) => setNewOwnershipPerc(parseInt(e.target.value, 10) || 0)}
-                />
+                <div className={styles.inputContainer}>
+                    <label htmlFor="wallet-addr">Wallet Address</label>
+                    <input 
+                        name="wallet-addr"
+                        placeholder="archive1ps3rtvcqw3p9megamtg8mrq3nn7fvzw2de6e62"
+                        className={styles.input}
+                        value={newWalletAddress || ''}
+                        onChange={(e) => setNewWalletAddress(e.target.value.trim())}
+                    />
+                </div>
+                <div className={styles.inputContainer}>
+                    <label htmlFor="ownership">Percent Ownership</label>
+                    <input 
+                        name="ownership"
+                        placeholder="100"
+                        className={styles.input}
+                        value={newOwnershipPerc || ''}
+                        onChange={(e) => setNewOwnershipPerc(parseInt(e.target.value, 10) || 0)}
+                    />
+                </div>
                 <button
                     onClick={handleAddOwner}
                     className={styles.button}
@@ -92,7 +96,7 @@ const RightsPage: NextPage = () => {
                 {/* Existing parties */}
                 {owners.map( (ownership, idx) => (
                     <div
-                        className={styles.container}
+                        className={styles.inputContainer}
                         key={idx}
                     >
                         <label htmlFor={`owner-${idx}`}>CDA ownership for {ownership.owner}</label>
