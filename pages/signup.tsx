@@ -69,7 +69,7 @@ const SignUp: NextPage = () => {
         
         if (res.ok) {
             updateUser(user)
-            router.push('/cda/upload')
+            router.push('/create/upload')
         } else {
             alert("User could not be created. Please try again later.")
         }

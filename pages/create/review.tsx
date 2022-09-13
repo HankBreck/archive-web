@@ -62,7 +62,7 @@ const ReviewPage: NextPage = () => {
     }, [])
 
     const handleNext = () => {
-        router.push('/cda/review')
+        router.push('/create/review')
     }
 
     const submit = async () => {

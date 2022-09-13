@@ -49,7 +49,7 @@ const AssetUploadPage: NextPage = () => {
         } else if (filesContent[0]) {
             uploadFile(filesContent[0].content).then( (cid) => {
                 saveTempCda(cid)
-                router.push('/cda/rights')
+                router.push('/create/rights')
             })
         }
     }, [filesContent])

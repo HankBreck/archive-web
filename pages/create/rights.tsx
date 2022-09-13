@@ -41,7 +41,7 @@ const RightsPage: NextPage = () => {
 
     const handleNext = () => {
         saveTempCda()
-        router.push('/cda/review')
+        router.push('/create/review')
     }
 
     const saveTempCda = () => {
