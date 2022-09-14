@@ -3,5 +3,6 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
 }
+const withTM = require('next-transpile-modules')(['archive-client-ts'])
 
-module.exports = nextConfig
+module.exports = withTM(nextConfig)
