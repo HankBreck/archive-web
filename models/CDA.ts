@@ -1,5 +1,3 @@
-import { Ownership } from "./helpers"
-
 type CDA = {
   // PK, VARCHAR(40), NOT NULL
   id: string
