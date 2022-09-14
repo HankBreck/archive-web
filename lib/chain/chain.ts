@@ -51,17 +51,17 @@ export const chainConfig = {
   currencies: [{
       coinDenom: 'token',
       coinMinimalDenom: 'token',
-      coinDecimals: 0,
+      coinDecimals: 6,
       // coinGeckoId: null,
   }, {
       coinDenom: 'stake',
       coinMinimalDenom: 'stake',
-      coinDecimals: 0,
+      coinDecimals: 6,
   }],
   feeCurrencies: [{
       coinDenom: 'token',
       coinMinimalDenom: 'token',
-      coinDecimals: 0,
+      coinDecimals: 6,
       // coinGeckoId: null,
   }],
 }

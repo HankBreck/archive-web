@@ -4,7 +4,6 @@ import { useRouter } from "next/router";
 
 import { Document, Page, pdfjs } from "react-pdf";
 import { Window as KeplrWindow } from '@keplr-wallet/types'
-import { Coin, isDeliverTxSuccess, StdFee } from "@cosmjs/stargate";
 
 import { fillContract, fillContractCdaId } from "../../lib/utils/pdf";
 import { getIPFSClient } from "../../lib/utils/ipfs";
@@ -13,17 +12,12 @@ import { fetchOrSetTempCDA } from "../../lib/utils/cookies";
 import { bytesToUtf8 } from "../../lib/utils/binary"
 
 import { queryClient, txClient } from "../../lib/chain/generated/archive/archive.cda/module"
+import { MsgCreateCDA } from "../../lib/chain/generated/archive/archive.cda/module/types/cda/tx";
 import { Ownership } from "../../lib/chain/generated/archive/archive.cda";
 import { chainConfig } from "../../lib/chain/chain";
 
 import styles from "../../styles/Home.module.css";
-
-import { getArchiveClient } from '../../lib/utils/archive'
-import { MsgCreateCDA } from 'archive-client-ts/archive.cda/types/cda/tx'
-import { StringEvent } from "../../lib/chain/generated/cosmos/cosmos-sdk/cosmos.authz.v1beta1/module/types/cosmos/base/abci/v1beta1/abci";
-
-// Set global PDF worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
+import { StdFee } from "@cosmjs/stargate";
 
 const ReviewPage: NextPage = () => {
     const router = useRouter()
@@ -32,7 +26,6 @@ const ReviewPage: NextPage = () => {
     const [keplrWindow, setKeplrWindow] = useState<Window & KeplrWindow>()
 
     // PDF state variables
-    // TODO: Manage these data structures better
     const [pdfUrl, setPdfUrl] = useState<string | undefined>()
     const [pdfString, setPdfString] = useState<string | undefined>()
     const [pdfBytes, setPdfBytes] = useState<Uint8Array | undefined>()
@@ -96,10 +89,10 @@ const ReviewPage: NextPage = () => {
         cda.contractCid = ipfsResult.cid.toString()
 
         // Store CDA in Postgres
-        // const dbResponse = await api.post('/cda/cda', { cda })
-        // if (!dbResponse.ok) {
-        //     throw new Error("postgres post failed")
-        // }
+        const dbResponse = await api.post('/cda/cda', { cda })
+        if (!dbResponse.ok) {
+            throw new Error("postgres post failed")
+        }
 
         // TODO: Figure out best way to do this.
         // TODO: Probably want to connect before uploading to postgres
@@ -109,8 +102,6 @@ const ReviewPage: NextPage = () => {
         const signer = keplrWindow.keplr.getOfflineSigner('casper-1')
         const [account] = await signer.getAccounts()
 
-        const archiveClient = getArchiveClient(signer)
-
         const msg: MsgCreateCDA = {
             creator: account.address,
             cid: cda.contractCid,
@@ -119,35 +110,40 @@ const ReviewPage: NextPage = () => {
         }
 
         // TODO: Add message for other parties to sign the CDA
+        console.log(account.address)
 
-        // const client = await txClient(signer, {addr: "http://localhost:26657"})
-        // const msgs = [client.msgCreateCDA(msg)]
+        const client = await txClient(signer, {addr: "http://localhost:26657"})
+        const msgs = [client.msgCreateCDA(msg)]
         const fee = {
-            amount: [{
-                denom: 'token',
-                amount: '100000'
-            } as Coin],
+            amount: [],
             // TODO: Don't hardcode gas fees
-            gas: "100000",
+            gas: "80000",
         } as StdFee
-        // const result = await archiveClient.ArchiveCda.tx.sendMsgCreateCDA({ value: msg })
-        const tx = archiveClient.ArchiveCda.tx.msgCreateCDA({ value: msg })
-        const result = await archiveClient.signAndBroadcast([tx], fee, "")
-        // const result = await client.signAndBroadcast(msgs, {fee})
-        console.log("DATA", result.data)
-        console.log("result", result)
-        console.log("raw log", result.rawLog)
-
+        const result = await client.signAndBroadcast(msgs, {fee})
 
         // Check if the transaction succeeded
-        if (result.code != 0
-            || !result.rawLog) {
+        if (result.code != 0) {
             console.log(result)
             throw new Error("Issue broadcasting transaction.")
         }
 
-        const rawLog = JSON.parse(result.rawLog) as RawLog
-        const cdaId = extractIdFromRawLog(rawLog)
+        const qClient = await queryClient()
+
+        // What is the case when cda.CreatorWalletAddress != account.address
+        // What is the case when a wallet is used create two CDAs at the same time?
+        const res = await qClient.queryCdasOwned(account.address, {
+            "pagination.limit": '1',
+            "pagination.reverse": true,
+        })
+        if (res.status != 200) {
+            throw new Error("CDA Query failed! Unable to find the CDA id")
+        }
+        const {ids} = res.data
+        if (ids?.length != 1) {
+            throw new Error("CDA Query failed! Unable to find the CDA id")
+        }
+
+        const cdaId = ids[0]
         console.log("CDA Id", cdaId)
 
 
@@ -201,25 +197,6 @@ const ReviewPage: NextPage = () => {
             </div>
         </div>
     )
-}
-
-type RawLog = [{ 
-    events: [{
-        type: string
-        attributes: {
-            key: string
-            value: string
-        }[]
-    }]
-}]
-
-// TODO: make this more general
-const extractIdFromRawLog = (rawLog: RawLog) => {
-    const idAttr = rawLog[0].events[0].attributes[3]
-    if (idAttr.key !== 'cda-id') {
-        throw new Error('Cda ID not found in logs')
-    }
-    return idAttr.value
 }
 
 export default ReviewPage
