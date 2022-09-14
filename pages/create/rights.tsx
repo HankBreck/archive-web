@@ -3,7 +3,7 @@ import { NextPage } from "next";
 import { useRouter } from "next/router";
 
 import { fetchOrSetTempCDA, updateTempCDA } from "../../lib/utils/cookies";
-import { Ownership } from "../../lib/chain/generated/archive/archive.cda";
+import { Ownership } from "archive-client-ts/archive.cda/types"
 import styles from "../../styles/Home.module.css";
 import css from "styled-jsx/css";
 

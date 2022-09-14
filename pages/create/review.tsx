@@ -12,15 +12,13 @@ import api from "../../lib/utils/api-client";
 import { fetchOrSetTempCDA } from "../../lib/utils/cookies";
 import { bytesToUtf8 } from "../../lib/utils/binary"
 
-import { queryClient, txClient } from "../../lib/chain/generated/archive/archive.cda/module"
-import { Ownership } from "../../lib/chain/generated/archive/archive.cda";
+import { Ownership } from "archive-client-ts/archive.cda/types"
 import { chainConfig } from "../../lib/chain/chain";
 
 import styles from "../../styles/Home.module.css";
 
 import { getArchiveClient } from '../../lib/utils/archive'
 import { MsgCreateCDA } from 'archive-client-ts/archive.cda/types/cda/tx'
-import { StringEvent } from "../../lib/chain/generated/cosmos/cosmos-sdk/cosmos.authz.v1beta1/module/types/cosmos/base/abci/v1beta1/abci";
 
 // Set global PDF worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;

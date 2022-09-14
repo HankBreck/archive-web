@@ -7,7 +7,6 @@ export const getIPFSClient = async () => {
   if (!ipfs) {
     ipfs = await create()
   }
-  ipfs.swarm.connect(process.env.IPFS_DEV_API_URI)
   return ipfs
 }
 

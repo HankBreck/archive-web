@@ -1,4 +1,4 @@
-import { Ownership } from "../lib/chain/generated/archive/archive.cda"
+import { Ownership } from "archive-client-ts/archive.cda/types"
 import User from "./User"
 
 export type LocalCDA = {
