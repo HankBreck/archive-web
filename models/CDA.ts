@@ -1,14 +1,12 @@
 type CDA = {
   // PK, VARCHAR(40), NOT NULL
   id: string
+  // VARCHAR(16), NOT NULL
+  status: "draft" | "pending" | "finalized"
   // FK, VARCHAR(64), NOT NULL
   creator_wallet: string
   // VARCHAR(64), NOT NULL
-  contract_cid: string
-  // VARCHAR(64), NOT NULL
-  contract_s3_key: string
-  // VARCHAR(16), NOT NULL
-  status: "draft" | "pending" | "finalized"
+  contract_id: string
   // TIMESTAMP
   created_at?: string
 

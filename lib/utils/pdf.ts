@@ -1,6 +1,6 @@
 import { PDFDocument } from 'pdf-lib'
 
-import { Ownership } from '../chain/generated/archive/archive.cda'
+import { Ownership } from 'archive-client-ts/archive.cda'
 import { fetchOrSetTempCDA, fetchOrSetUser } from "./cookies"
 
 /**

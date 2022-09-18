@@ -4,4 +4,4 @@
       "isolatedModules": false
     },
     "include": ["*.ts"],
-  }
+}

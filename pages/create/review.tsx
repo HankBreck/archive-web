@@ -19,6 +19,7 @@ import styles from "../../styles/Home.module.css";
 
 import { getArchiveClient } from '../../lib/utils/archive'
 import { MsgCreateCDA } from 'archive-client-ts/archive.cda/types/cda/tx'
+import { PostBody } from "../api/cda/contract";
 
 // Set global PDF worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
@@ -56,15 +57,10 @@ const ReviewPage: NextPage = () => {
         
         // Load the Keplr window
         if (!keplrWindow?.keplr) {
-            console.log("setting keplrWindow")
             setKeplrWindow(window as Window & KeplrWindow )
             console.log("set keplrWindow")
         }
     }, [])
-
-    const handleNext = () => {
-        router.push('/create/review')
-    }
 
     const submit = async () => {
         // Ensure pdf uploaded and wallet connected
@@ -81,45 +77,41 @@ const ReviewPage: NextPage = () => {
         // Upload PDF to IPFS and S3
         const ipfs = await getIPFSClient()
         const ipfsPromise = ipfs.add(pdfBytes, { pin: true, timeout: 5000 }) // 5 second timeout
-        const s3Promise = api.post('/cda/contract', { pdfString })
-        const [ipfsResult, s3Response] = await Promise.all([ipfsPromise, s3Promise])
-        if (!s3Response.ok) { 
-            throw new Error("s3 upload failed!")
-        }
+        const s3Promise = api.put('/cda/contract', { pdfString })
+            .then(res => res.json())
+            .catch(console.error)
+        const [ipfsResult, s3Json] = await Promise.all([ipfsPromise, s3Promise])
         
-        // Store CID and S3 key in CDA object
+        // Update the CDA and store in Postgres
         const cda = fetchOrSetTempCDA()
-        const s3Json = await s3Response.json()
         cda.s3Key = s3Json.key as string
         cda.contractCid = ipfsResult.cid.toString()
+        const dbResponse = await api.post('/cda/cda', { cda })
+        // TODO: Figure out error handling here. It currently displays success, even if the DB post failed
+        if (!dbResponse.ok) {
+            throw new Error("postgres post failed")
+        }
+        const { contract_id } = await dbResponse.json() 
+        if (typeof contract_id === 'undefined') {
+            throw new Error("postgres post failed")
+        }
 
-        // Store CDA in Postgres
-        // const dbResponse = await api.post('/cda/cda', { cda })
-        // if (!dbResponse.ok) {
-        //     throw new Error("postgres post failed")
-        // }
 
         // TODO: Figure out best way to do this.
         // TODO: Probably want to connect before uploading to postgres
         await keplrWindow.keplr.experimentalSuggestChain(chainConfig)
         await keplrWindow.keplr.enable('casper-1')
-
         const signer = keplrWindow.keplr.getOfflineSigner('casper-1')
         const [account] = await signer.getAccounts()
-
         const archiveClient = getArchiveClient(signer)
 
+        // Build the blockchain message to broadcast
         const msg: MsgCreateCDA = {
             creator: account.address,
             cid: cda.contractCid,
             ownership: cda.owners as Ownership[],
             expiration: 4818163585000, // TODO: Add field to set contract terms
         }
-
-        // TODO: Add message for other parties to sign the CDA
-
-        // const client = await txClient(signer, {addr: "http://localhost:26657"})
-        // const msgs = [client.msgCreateCDA(msg)]
         const fee = {
             amount: [{
                 denom: 'token',
@@ -128,14 +120,8 @@ const ReviewPage: NextPage = () => {
             // TODO: Don't hardcode gas fees
             gas: "100000",
         } as StdFee
-        // const result = await archiveClient.ArchiveCda.tx.sendMsgCreateCDA({ value: msg })
         const tx = archiveClient.ArchiveCda.tx.msgCreateCDA({ value: msg })
         const result = await archiveClient.signAndBroadcast([tx], fee, "")
-        // const result = await client.signAndBroadcast(msgs, {fee})
-        console.log("DATA", result.data)
-        console.log("result", result)
-        console.log("raw log", result.rawLog)
-
 
         // Check if the transaction succeeded
         if (result.code != 0
@@ -143,20 +129,26 @@ const ReviewPage: NextPage = () => {
             console.log(result)
             throw new Error("Issue broadcasting transaction.")
         }
-
         const rawLog = JSON.parse(result.rawLog) as RawLog
         const cdaId = extractIdFromRawLog(rawLog)
         console.log("CDA Id", cdaId)
 
-
-        // Should this be the TX hash?
-            // cdaId can be changed, but txhash is immutable by consensus
+        // Should this be the TX hash? CdaId can be changed, but txhash is immutable by consensus
         const newPdfBytes = await fillContractCdaId(cdaId, pdfBytes)
-        setPdfUrl(
-            window.URL.createObjectURL(new Blob([newPdfBytes], { type: 'application/pdf' }))
-        )
 
-        // TODO: save the new bytes to S3
+        // Update store the updated contract in S3 & update Postgres
+        const request: PostBody = {
+            pdfString: bytesToUtf8(newPdfBytes),
+            updateField: "pending_s3_key",
+            contractId: contract_id,
+        }
+        const contractRes = await api.post('/cda/contract', request)
+        if (!contractRes.ok) {
+            throw new Error("Could not store the new contract in S3.")
+        }
+
+        // Finally... we can move to the next page
+        router.push('/create/success')
     }
 
     const onDocumentLoadSuccess = (numPages: number) => {
@@ -211,7 +203,7 @@ type RawLog = [{
     }]
 }]
 
-// TODO: make this more general
+// TODO: make this more general (expect changes in attribute order)
 const extractIdFromRawLog = (rawLog: RawLog) => {
     const idAttr = rawLog[0].events[0].attributes[3]
     if (idAttr.key !== 'cda-id') {

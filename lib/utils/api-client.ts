@@ -52,5 +52,22 @@ const post = (
   }).then(handleErrors)
 }
 
-export const api = { get, post }
+const put = (
+  endpoint: string,
+  body: Record<string, unknown>  | undefined
+): Promise<Response> => {
+  if (endpoint.startsWith('/')) {
+    endpoint = endpoint.slice(1)
+  }
+
+  return fetch(`/api/${endpoint}`, {
+    method: 'PUT',
+    headers: {
+      'Content-type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  }).then(handleErrors)
+}
+
+export const api = { get, post, put }
 export default api

@@ -1,4 +1,4 @@
-import { Pool, QueryResult, QueryResultRow } from 'pg'
+import { Pool, QueryResult } from 'pg'
 
 const dbName = process.env.PGDATABASE
 const dbPort = process.env.PGPORT
@@ -30,21 +30,6 @@ let pool: Pool = new Pool({
   host: dbHost,
 })
 
-// const dbConnect = async () => {
-//   if (!pool) {
-//     console.log("connecting to pool")
-//     pool = new Pool({
-//       user: dbUser,
-//       database: dbName,
-//       password: dbPass,
-//       port: parseInt(dbPort),
-//       host: dbHost,
-//     })
-//   }
-//   console.log("conneced to pool!")
-//   // return pool
-// }
-
 const query = async <R = any>(
   text: string, 
   values?: any, 
@@ -70,10 +55,7 @@ const query = async <R = any>(
  * @param enforceOrder Awaits each query before starting the next if true
  */
 const transaction = async (
-  queries: {
-    text: string, 
-    values?: any,
-  }[],
+  queries: QueryType[],
   enforceOrder?: boolean,
 ) => {
   const client = await pool.connect()
@@ -109,4 +91,11 @@ const transaction = async (
   }
 }
 
+type QueryType = {
+  text: string, 
+  values?: any,
+}
+
 export { query, transaction }
+export type { QueryType }
+

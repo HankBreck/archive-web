@@ -1,6 +1,5 @@
 import { OfflineSigner } from '@cosmjs/proto-signing'
 import { Client } from 'archive-client-ts'
-import { IgniteClient } from 'archive-client-ts/client'
 
 const getArchiveClient = (signer: OfflineSigner) => {
   const apiUri = process.env.NEXT_PUBLIC_ARCHIVE_API_URI 
