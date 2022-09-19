@@ -93,7 +93,7 @@ const ReviewPage: NextPage = () => {
         }
         const { contract_id } = await dbResponse.json() 
         if (typeof contract_id === 'undefined') {
-            throw new Error("postgres post failed")
+            throw new Error("contract_id cannot be undefined")
         }
 
 
