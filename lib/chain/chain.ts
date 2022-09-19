@@ -1,5 +1,11 @@
-import { SigningCosmosClient } from '@cosmjs/launchpad'
+// import { SignDoc } from '@cosmjs/stargate'
 import { Window as KeplrWindow } from '@keplr-wallet/types'
+import { PubKeySecp256k1 } from '@keplr-wallet/crypto'
+import { signingString } from '../utils/constants'
+import { StdSignDoc, decodeSignature } from '@cosmjs/launchpad'
+
+// import { makeAuthInfoBytes, makeSignBytes, makeSignDoc } from '@cosmjs/proto-signing'
+import { serializeSignDoc} from '@cosmjs/amino'
 
 // Helper functions
 
@@ -13,15 +19,43 @@ export const validateAddress = async (walletAddr: string, windowKeplr: Window & 
   if (walletAddr == "" || !windowKeplr || !windowKeplr.keplr) { return }
 
   try {
-    const arb = "This is a random ass test string. If you are seeing this, Hank fucked up."
-    const sig = await windowKeplr.keplr.signArbitrary('casper-1', walletAddr, arb)
-    const success = await windowKeplr.keplr.verifyArbitrary('casper-1', walletAddr, arb, sig)
-    return success
+    // Build msg and prompt user for signature
+    const key = await windowKeplr.keplr.getKey('casper-1')
+    const signDoc = getADR36SignDoc(walletAddr, Buffer.from(signingString).toString('base64'))
+    const signRes = await windowKeplr.keplr.signAmino('casper-1', walletAddr, signDoc)
+    
+    // Transform signature and serialize message
+    const signBytes = serializeSignDoc(signRes.signed)
+    const signature = decodeSignature(signRes.signature)
+    const accPubKey = new PubKeySecp256k1(key.pubKey)
+    
+    return accPubKey.verify(signBytes, signature.signature)
   } catch (error) {
     console.error(error)
     return false
   }
-  
+}
+
+function getADR36SignDoc(signer: string, data: string): StdSignDoc {
+  return {
+    chain_id: "",
+    account_number: "0",
+    sequence: "0",
+    fee: {
+      gas: "0",
+      amount: [],
+    },
+    msgs: [
+      {
+        type: "sign/MsgSignData",
+        value: {
+          signer,
+          data,
+        },
+      },
+    ],
+    memo: "",
+  };
 }
 
 // Config options
