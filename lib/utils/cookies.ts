@@ -40,3 +40,13 @@ export function fetchOrSetUser(): User {
 export function updateUser(newUser: User) {
   setCookie(null, 'user', JSON.stringify(newUser), opts)
 }
+
+export function setSessionId(id: string) {
+  setCookie(null, 'sessionId', id, opts)
+}
+
+export function getSessionId() {
+  const { sessionId } = parseCookies()
+  if (!sessionId) { return }
+  return sessionId
+}

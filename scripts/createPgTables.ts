@@ -8,6 +8,7 @@ const { Client } = require('pg')
 
 dotenv.config({ path: '.env.local'})
 let env = process.argv[2]
+let only = process.argv[3]
 let dbName: string, dbPort: string, dbUser: string, dbPass: string, dbHost: string
 
 if (env === 'production') {
@@ -93,16 +94,56 @@ const createCdaOwnershipTableQuery = "CREATE TABLE CdaOwnership( \
   PRIMARY KEY(id) \
 )"
 
-client.connect().then(async () => {
-  const createUsersTableQueryResult = await client.query(createUsersTableQuery)
-  console.log("Users table created!")
-  
-  const createContractsTableQueryResult = await client.query(createContractsTableQuery)
-  console.log("Contracts table created!")
+// FK wallet_address -> Users(wallet_address)
+const createSessionsTableQuery = "CREATE TABLE Sessions( \
+  id VARCHAR(64) NOT NULL, \
+  wallet_address VARCHAR(64) NOT NULL,\
+  ttl TIMESTAMP NOT NULL, \
+  PRIMARY KEY(id) \
+)"
 
-  const createCDAsTableQueryResult = await client.query(createCDAsTableQuery)
-  console.log("CDAs table created!")
+client.connect().then(async () => {
+  console.log("Connected to Postgres")
+
+  if (!only || only === "") {
+    const createUsersTableQueryResult = await client.query(createUsersTableQuery)
+    console.log("Users table created!")
+    
+    const createContractsTableQueryResult = await client.query(createContractsTableQuery)
+    console.log("Contracts table created!")
   
-  const createCdaOwnershipTableQueryResult = await client.query(createCdaOwnershipTableQuery)
-  console.log("CdaOwnership table created!")
+    const createCDAsTableQueryResult = await client.query(createCDAsTableQuery)
+    console.log("CDAs table created!")
+    
+    const createCdaOwnershipTableQueryResult = await client.query(createCdaOwnershipTableQuery)
+    console.log("CdaOwnership table created!")
+  
+    const createSessionsTableQueryResult = await client.query(createSessionsTableQuery)
+    console.log("Sessions table created!")
+  } else {
+    switch(only.toLocaleLowerCase()) {
+      case 'users':
+        const createUsersTableQueryResult = await client.query(createUsersTableQuery)
+        console.log("Users table created!")
+        break
+      case 'contracts':
+        const createContractsTableQueryResult = await client.query(createContractsTableQuery)
+        console.log("Contracts table created!")
+        break
+      case 'cdas':
+        const createCDAsTableQueryResult = await client.query(createCDAsTableQuery)
+        console.log("CDAs table created!")
+        break
+      case 'cdaownership':
+        const createCdaOwnershipTableQueryResult = await client.query(createCdaOwnershipTableQuery)
+        console.log("CdaOwnership table created!")
+        break
+      case 'sessions':
+        const createSessionsTableQueryResult = await client.query(createSessionsTableQuery)
+        console.log("Sessions table created!")
+        break
+      default:
+        console.log("Table name not found during the creation of ONLY one table.")
+    }
+  }
 }).finally(async () => await client.end())

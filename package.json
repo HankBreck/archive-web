@@ -13,9 +13,11 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.154.0",
     "@aws-sdk/lib-storage": "^3.157.0",
+    "@cosmjs/encoding": "^0.29.0",
     "@cosmjs/launchpad": "^0.27.1",
     "@cosmjs/proto-signing": "^0.28.13",
     "@cosmjs/stargate": "^0.28.13",
+    "@keplr-wallet/crypto": "^0.11.0",
     "@keplr-wallet/types": "^0.10.19",
     "archive-client-ts": "^0.0.2",
     "ipfs-core": "^0.15.4",
@@ -31,6 +33,7 @@
     "use-file-picker": "^1.5.1"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^8.5.9",
     "@types/node": "18.7.6",
     "@types/pg": "^8.6.5",
     "@types/pg-format": "^1.0.2",

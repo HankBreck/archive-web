@@ -1,8 +1,9 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-import User from '../../models/User'
-import { query } from '../../lib/postgres'
+import User from '../../../models/User'
+import { query } from '../../../lib/postgres'
+import { isSessionValid } from '../../../lib/session'
 
 export type UserResponse = {
   _id: string
@@ -45,8 +46,18 @@ export default async function handler(
 
     case 'POST':
       // Create a new user
+      // Assumes the user has already created a session through the authentication endpoint
 
       const user = req.body.user as User
+      const sessionId = req.body.sessionId as string
+
+      if (!sessionId) {
+        return res.status(400).json({ message: "sessionId cookie required" })
+      }
+      const valid = await isSessionValid(sessionId, user.wallet_address)
+      if (!valid) {
+        return res.status(401).json({ message: "Session invalid. Please reauthenticate and try again later." })
+      }
 
       // Ensure all fields are properly set
       if (!user.wallet_address ||

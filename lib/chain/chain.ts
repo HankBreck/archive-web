@@ -2,21 +2,27 @@
 import { Window as KeplrWindow } from '@keplr-wallet/types'
 import { PubKeySecp256k1 } from '@keplr-wallet/crypto'
 import { signingString } from '../utils/constants'
-import { StdSignDoc, decodeSignature } from '@cosmjs/launchpad'
+import { StdSignDoc, decodeSignature, AminoSignResponse } from '@cosmjs/launchpad'
 
 // import { makeAuthInfoBytes, makeSignBytes, makeSignDoc } from '@cosmjs/proto-signing'
 import { serializeSignDoc} from '@cosmjs/amino'
+import api from '../utils/api-client'
+import { setSessionId } from '../utils/cookies'
 
 // Helper functions
+
+export type VerifiableSignature = {
+  signRes: AminoSignResponse
+}
 
 /**
  * Requests user to sign arbitrary bytes offline using Keplr wallet
  * @param walletAddr the user's wallet address as a string
  * @param windowKeplr the Keplr Window instace
- * @returns true if the wallet was validated, false if not or an error or occured 
+ * @returns a boolean determining whether or not the signature was validated and a payload used to verify the signature on the server
  */
-export const validateAddress = async (walletAddr: string, windowKeplr: Window & KeplrWindow) => {
-  if (walletAddr == "" || !windowKeplr || !windowKeplr.keplr) { return }
+export const validateAddress = async (walletAddr: string, windowKeplr: Window & KeplrWindow): Promise<boolean> => {
+  if (walletAddr == "" || !windowKeplr || !windowKeplr.keplr) { return false }
 
   try {
     // Build msg and prompt user for signature
@@ -27,9 +33,20 @@ export const validateAddress = async (walletAddr: string, windowKeplr: Window & 
     // Transform signature and serialize message
     const signBytes = serializeSignDoc(signRes.signed)
     const signature = decodeSignature(signRes.signature)
-    const accPubKey = new PubKeySecp256k1(key.pubKey)
+    const accPubKey = new PubKeySecp256k1(signature.pubkey)
+
+    const success = accPubKey.verify(signBytes, signature.signature)
+    if (!success) { return false }
+
+    try {
+      const res = await api.post('/user/authenticate', { accAddr: walletAddr, sig: { signRes } })
+      const { sessionId } = (await res.json()) as { sessionId: string }
+      setSessionId(sessionId)
+    } catch (err) {
+      console.error(err)
+    }
     
-    return accPubKey.verify(signBytes, signature.signature)
+    return true
   } catch (error) {
     console.error(error)
     return false

@@ -3,7 +3,7 @@ import { NextPage } from "next"
 import { useRouter } from "next/router"
 import { Window as KeplrWindow } from '@keplr-wallet/types'
 import User from "../models/User"
-import { updateUser } from "../lib/utils/cookies"
+import { getSessionId, updateUser } from "../lib/utils/cookies"
 import api from "../lib/utils/api-client"
 import styles from '../styles/Home.module.css'
 import { chainConfig, validateAddress } from "../lib/chain/chain"
@@ -48,10 +48,10 @@ const SignUp: NextPage = () => {
         const [account] = await signer.getAccounts()
 
         // Validate that the user owns their wallet
-        const isUserValidated = await validateAddress(account.address, keplrWindow)
-        if (!isUserValidated) { 
+        const isValidated = await validateAddress(account.address, keplrWindow)
+        if (!isValidated) { 
             throw new Error("Wallet could not be validated.")
-         }
+        }
 
         // If we make it to here, we are fully authenticated
         const user: User = {
@@ -65,7 +65,12 @@ const SignUp: NextPage = () => {
             email,
         }
 
-        const res = await api.post('/user', { user })
+        const sessionId = getSessionId()
+        if (!sessionId) {
+            throw new Error("SessionID missing!")
+        }
+
+        const res = await api.post('/user', { user, sessionId })
         
         if (res.ok) {
             updateUser(user)
