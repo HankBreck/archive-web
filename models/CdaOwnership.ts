@@ -8,6 +8,8 @@ type CdaOwnership = {
   owner_wallet: string
   // INT, NOT NULL
   percent_ownership: number
+  // VARCHAR(64)
+  signature_hash?: string
 }
 
 export default CdaOwnership

@@ -80,6 +80,7 @@ const createCDAsTableQuery = "CREATE TABLE CDAs( \
   status VARCHAR(16) NOT NULL, \
   creator_wallet VARCHAR(64) NOT NULL, \
   contract_id VARCHAR(64) NOT NULL, \
+  onchain_id INT, \
   created_at TIMESTAMP, \
   PRIMARY KEY(id) \
 )"
@@ -91,6 +92,7 @@ const createCdaOwnershipTableQuery = "CREATE TABLE CdaOwnership( \
   cda_id VARCHAR(64) NOT NULL, \
   owner_wallet VARCHAR(64) NOT NULL, \
   percent_ownership INT NOT NULL, \
+  signature_hash VARCHAR(64), \
   PRIMARY KEY(id) \
 )"
 

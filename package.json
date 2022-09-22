@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "generate-contract": "npx ts-node -P ./scripts/tsconfig.json  ./scripts/generateContract.ts",
-    "create-pg-tables": "npx ts-node -P ./scripts/tsconfig.json  ./scripts/createPgTables.ts",
+    "generate-tables": "npx ts-node -P ./scripts/tsconfig.json  ./scripts/createPgTables.ts",
     "test-encoding": "npx ts-node -P ./scripts/tsconfig.json  ./scripts/testEncoding.ts"
   },
   "dependencies": {

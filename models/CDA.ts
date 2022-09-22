@@ -7,8 +7,10 @@ type CDA = {
   creator_wallet: string
   // VARCHAR(64), NOT NULL
   contract_id: string
+  // INT
+  onchain_id?: number
   // TIMESTAMP
-  created_at?: string
+  created_at?: Date
 
   // NOT IN DATABASE!
   property_cid?: string
