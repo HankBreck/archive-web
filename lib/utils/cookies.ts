@@ -1,3 +1,4 @@
+import { NextPageContext } from 'next';
 import { parseCookies, setCookie } from 'nookies'
 import { createCda, createUser, LocalCDA } from '../../models/helpers'
 import User from '../../models/User';
@@ -45,8 +46,8 @@ export function setSessionId(id: string) {
   setCookie(null, 'sessionId', id, opts)
 }
 
-export function getSessionId() {
-  const { sessionId } = parseCookies()
+export function getSessionId(ctx?: NextPageContext) {
+  const { sessionId } = parseCookies(ctx)
   if (!sessionId) { return }
   return sessionId
 }

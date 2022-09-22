@@ -29,4 +29,4 @@ const createS3Client = () => {
 
 let s3Client = global.s3Client || createS3Client()
 
-export { s3Client }
+export { s3Client, createS3Client }

@@ -6,7 +6,7 @@ import format from 'pg-format'
 import { s3Client } from '../../../lib/utils/s3'
 import { randomUUID } from 'crypto'
 import { query } from '../../../lib/postgres'
-
+import { Readable } from 'stream'
 
 export type PutBody = {
   pdfString: string
@@ -38,37 +38,45 @@ export default async function handler(
   switch (method) {
     case 'GET':
       // Fetch the contract bytes from S3
+      const s3Key = req.query.s3Key as string
 
-      const success = await new Promise(async (resolve, reject) => {
+      // TODO: Validate s3Key is legal
 
-        // TODO: Probably completely redo this...
+      const getParams = {
+        Bucket: BUCKET_NAME,
+        Key: s3Key,
+      }
+      const getObjCommand = new GetObjectCommand(getParams)
+      const response = await s3Client.send(getObjCommand)
+      if (!response.Body) {
+        return res.status(400).json({ message: "PDF bytes could not be recovered from s3." })
+      }
 
-        try {
-          const getParams = {
-            Bucket: "archive-contract-storage",
-            Key: "",
-            // Body: "",
-          }
+      const file_stream = response.Body!
 
-          const results = await s3Client.send(new GetObjectCommand(getParams))
-          if (!results.Body) { reject() }
+      if (!(file_stream instanceof Readable)) {
+        console.error("Unknown file stream type")
+        return res.status(400).json({ message: "Could not parse file" })
+      }
 
-          const body = results.Body as ReadableStream<Uint8Array> // might fail on cast
-          const reader = body.getReader()
-          const result = await reader.read()
+      const dataFetch = () => {
+        return new Promise<string>((resolve, reject) => {
+          const chunks: Uint8Array[] = []
+          file_stream.on("data", (chunk: any) => chunks.push(chunk as Uint8Array))
+          file_stream.on("error", (err: any) => reject(err))
+          file_stream.on("end", () => {
+            resolve(Buffer.concat(chunks).toString('utf8'))
+          })
+        })
+      }
 
-          if (!result.value) {
-            reject(res.status(400).json({ success: false, message: "Could not read contract bytes from S3" }))
-          }
+      const pdfStr = await dataFetch()
 
-          resolve(res.status(200).json({ success: true, pdfBytes: result.value }))
-
-        } catch (error) {
-          
-        }
-      })
+      if (!pdfStr) {
+        return res.status(400).json({ message: "Could not parse file" })
+      }
       
-      return res.status(200).json({ success: true })
+      return res.status(200).json({ data: pdfStr })
 
     case 'POST':
       // Store a contract in S3 and update the corresponding Contracts entry in Postgress
@@ -88,9 +96,9 @@ export default async function handler(
       if (s3Res.err) {
         return res.status(400).json({ message: s3Res.err.message })
       }
-
       
       await query(
+        // Special Postgres formatting to prevent SQL injections
         format("UPDATE Contracts SET %s = $1 WHERE id = $2", body.updateField),
         [params.Key, body.contractId]
       )
@@ -126,7 +134,7 @@ export default async function handler(
 
 const putFileInS3 = async (params: S3PutParams, client: S3Client): Promise<{key?: string, err?: Error}> => {
   try {
-    const data = await client.send(new PutObjectCommand(params))
+    await client.send(new PutObjectCommand(params))
     return { key: params.Key, err: undefined }
   } catch (error) {
     console.error(error)

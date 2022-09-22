@@ -2,24 +2,22 @@ import { useEffect, useState } from "react";
 import { NextPage } from "next";
 import { useRouter } from "next/router";
 
-import { Document, Page, pdfjs } from "react-pdf";
-import { Window as KeplrWindow } from '@keplr-wallet/types'
-import { Coin, isDeliverTxSuccess, StdFee } from "@cosmjs/stargate";
-
-import { fillContract, fillContractCdaId } from "../../lib/utils/pdf";
-import { getIPFSClient } from "../../lib/utils/ipfs";
-import api from "../../lib/utils/api-client";
-import { fetchOrSetTempCDA } from "../../lib/utils/cookies";
-import { bytesToUtf8 } from "../../lib/utils/binary"
-
 import { Ownership } from "archive-client-ts/archive.cda/types"
+import { MsgCreateCDA } from 'archive-client-ts/archive.cda/types/cda/tx'
+import { Window as KeplrWindow } from '@keplr-wallet/types'
+import { Coin, StdFee } from "@cosmjs/stargate";
+import { Document, Page, pdfjs } from "react-pdf";
+import { decodeFromBase64 } from "pdf-lib";
+
+import api from "../../lib/utils/api-client";
+import { PostBody } from "../api/cda/contract";
+import { getArchiveClient } from '../../lib/utils/archive'
+import { fetchOrSetTempCDA } from "../../lib/utils/cookies";
+import { getIPFSClient } from "../../lib/utils/ipfs";
+import { fillContract, fillContractCdaId } from "../../lib/utils/pdf";
 import { chainConfig } from "../../lib/chain/chain";
 
 import styles from "../../styles/Home.module.css";
-
-import { getArchiveClient } from '../../lib/utils/archive'
-import { MsgCreateCDA } from 'archive-client-ts/archive.cda/types/cda/tx'
-import { PostBody } from "../api/cda/contract";
 
 // Set global PDF worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
@@ -34,24 +32,21 @@ const ReviewPage: NextPage = () => {
     // TODO: Manage these data structures better
     const [pdfUrl, setPdfUrl] = useState<string | undefined>()
     const [pdfString, setPdfString] = useState<string | undefined>()
-    const [pdfBytes, setPdfBytes] = useState<Uint8Array | undefined>()
     const [pageCount, setPageCount] = useState<number>()
 
     useEffect(() => {
         const fetchContract = async () => {
-            const bytes = await fillContract()
-            if (!bytes) { 
+            let pdf = await fillContract()
+            if (!pdf) { 
                 console.log("fillContract has failed. No bytes returned")
                 return
             }
+            const bytes = decodeFromBase64(pdf)
 
+            setPdfString(pdf)
             setPdfUrl(
                 window.URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
             )
-
-            const stringBytes = bytesToUtf8(bytes)
-            setPdfString(stringBytes)
-            setPdfBytes(bytes)
         }
         fetchContract()
         
@@ -64,8 +59,8 @@ const ReviewPage: NextPage = () => {
 
     const submit = async () => {
         // Ensure pdf uploaded and wallet connected
-        if (!pdfBytes) {
-            throw new Error("pdf bytes not set!")
+        if (!pdfString) {
+            throw new Error("pdf string not set!")
         }
         if (!keplrWindow || // TODO: Display popup to download or connect with Keplr
             !keplrWindow.keplr) { 
@@ -76,7 +71,7 @@ const ReviewPage: NextPage = () => {
 
         // Upload PDF to IPFS and S3
         const ipfs = await getIPFSClient()
-        const ipfsPromise = ipfs.add(pdfBytes, { pin: true, timeout: 5000 }) // 5 second timeout
+        const ipfsPromise = ipfs.add(pdfString, { pin: true, timeout: 5000 }) // 5 second timeout
         const s3Promise = api.put('/cda/contract', { pdfString })
             .then(res => res.json())
             .catch(console.error)
@@ -134,11 +129,11 @@ const ReviewPage: NextPage = () => {
         console.log("CDA Id", cdaId)
 
         // Should this be the TX hash? CdaId can be changed, but txhash is immutable by consensus
-        const newPdfBytes = await fillContractCdaId(cdaId, pdfBytes)
+        const newPdf = await fillContractCdaId(cdaId, pdfString)
 
         // Update store the updated contract in S3 & update Postgres
         const request: PostBody = {
-            pdfString: bytesToUtf8(newPdfBytes),
+            pdfString: newPdf,
             updateField: "pending_s3_key",
             contractId: contract_id,
         }

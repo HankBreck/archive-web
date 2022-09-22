@@ -5,7 +5,7 @@ import { fetchOrSetTempCDA, fetchOrSetUser } from "./cookies"
 
 /**
  * Popoulates the template legal contract with relevant metadata from `user` and `cda` cookies.
- * @returns the updated PDF document as bytes
+ * @returns the updated PDF document as a base64 encoded string
  */
 const fillContract = async () => {
   const cda = fetchOrSetTempCDA()
@@ -42,21 +42,21 @@ const fillContract = async () => {
   propertyCidField.setText(cda.propertyCid)
   cdaOwnershipField.setText("100%")
 
-  return pdfDoc.save()
+  return pdfDoc.saveAsBase64()
 }
 
 /**
  * Popoulates the legal contract with the CDA's ID
- * @returns the updated PDF document as bytes
+ * @returns the updated PDF document as a base64 encoded string
  */
-const fillContractCdaId = async (cdaId: string, pdfBytes: Uint8Array) => {
-  const pdfDoc = await PDFDocument.load(pdfBytes)
+const fillContractCdaId = async (cdaId: string, pdf: string) => {
+  const pdfDoc = await PDFDocument.load(pdf)
   pdfDoc
     .getForm()
     .getTextField('cda.id')
     .setText(cdaId)
   
-  return pdfDoc.save()
+  return pdfDoc.saveAsBase64()
 }
 
 const validateWalletAddress = (address: string | undefined) => {
