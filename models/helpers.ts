@@ -7,6 +7,7 @@ export type LocalCDA = {
   owners: Ownership[]
   s3Key: string
   contractCid: string
+  onchainId?: number
   status: "draft" | "pending" | "finalized"
 }
 

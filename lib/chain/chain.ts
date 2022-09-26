@@ -1,18 +1,31 @@
-// import { SignDoc } from '@cosmjs/stargate'
 import { Window as KeplrWindow } from '@keplr-wallet/types'
 import { PubKeySecp256k1 } from '@keplr-wallet/crypto'
-import { signingString } from '../utils/constants'
 import { StdSignDoc, decodeSignature, AminoSignResponse } from '@cosmjs/launchpad'
-
-// import { makeAuthInfoBytes, makeSignBytes, makeSignDoc } from '@cosmjs/proto-signing'
 import { serializeSignDoc} from '@cosmjs/amino'
+
 import api from '../utils/api-client'
+import { signingString } from '../utils/constants'
 import { setSessionId } from '../utils/cookies'
+import { Signer } from './useKeplr'
+import { Ownership } from 'archive-client-ts/archive.cda'
+import { OwnersRow } from '../../pages/cdas/[id]'
+import { MsgApproveCda } from 'archive-client-ts/archive.cda/module'
 
 // Helper functions
 
 export type VerifiableSignature = {
   signRes: AminoSignResponse
+}
+
+export const createMsgApproveCda = async (cdaId: number, signer: Signer, ownersInfo: OwnersRow[]) => {
+  const account = (await signer.getAccounts())[0]
+  const ownership: Ownership[] = ownersInfo.map((owner) => { 
+      return { 
+          owner: owner.owner_wallet, 
+          ownership: parseInt(owner.percent_ownership)
+      }
+  })
+  return { creator: account.address, cdaId, ownership } as MsgApproveCda
 }
 
 /**
@@ -76,7 +89,6 @@ function getADR36SignDoc(signer: string, data: string): StdSignDoc {
 }
 
 // Config options
-
 export const chainConfig = {
   chainId: 'casper-1',
   chainName: 'archive',

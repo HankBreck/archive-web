@@ -10,7 +10,7 @@ type CDA = {
   // INT
   onchain_id?: number
   // TIMESTAMP
-  created_at?: Date
+  created_at?: string
 
   // NOT IN DATABASE!
   property_cid?: string

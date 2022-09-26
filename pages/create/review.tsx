@@ -18,6 +18,8 @@ import { fillContract, fillContractCdaId } from "../../lib/utils/pdf";
 import { chainConfig } from "../../lib/chain/chain";
 
 import styles from "../../styles/Home.module.css";
+import useKeplr from "../../lib/chain/useKeplr";
+import { LocalCDA } from "../../models/helpers";
 
 // Set global PDF worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
@@ -26,7 +28,7 @@ const ReviewPage: NextPage = () => {
     const router = useRouter()
 
     // Keplr Helpers
-    const [keplrWindow, setKeplrWindow] = useState<Window & KeplrWindow>()
+    const [keplr, signer] = useKeplr()
 
     // PDF state variables
     // TODO: Manage these data structures better
@@ -49,54 +51,14 @@ const ReviewPage: NextPage = () => {
             )
         }
         fetchContract()
-        
-        // Load the Keplr window
-        if (!keplrWindow?.keplr) {
-            setKeplrWindow(window as Window & KeplrWindow )
-            console.log("set keplrWindow")
-        }
     }, [])
 
-    const submit = async () => {
-        // Ensure pdf uploaded and wallet connected
-        if (!pdfString) {
-            throw new Error("pdf string not set!")
-        }
-        if (!keplrWindow || // TODO: Display popup to download or connect with Keplr
-            !keplrWindow.keplr) { 
-                throw new Error("Keplr window missing!")
+    const publishToChain = async (cda: LocalCDA) => {
+        if (!keplr || !signer) { 
+            throw new Error("Keplr window missing!")
         }
 
         // TODO: Ensure cda.CreatorWalletAddress === account.address
-
-        // Upload PDF to IPFS and S3
-        const ipfs = await getIPFSClient()
-        const ipfsPromise = ipfs.add(pdfString, { pin: true, timeout: 5000 }) // 5 second timeout
-        const s3Promise = api.put('/cda/contract', { pdfString })
-            .then(res => res.json())
-            .catch(console.error)
-        const [ipfsResult, s3Json] = await Promise.all([ipfsPromise, s3Promise])
-        
-        // Update the CDA and store in Postgres
-        const cda = fetchOrSetTempCDA()
-        cda.s3Key = s3Json.key as string
-        cda.contractCid = ipfsResult.cid.toString()
-        const dbResponse = await api.post('/cda/cda', { cda })
-        // TODO: Figure out error handling here. It currently displays success, even if the DB post failed
-        if (!dbResponse.ok) {
-            throw new Error("postgres post failed")
-        }
-        const { contract_id } = await dbResponse.json() 
-        if (typeof contract_id === 'undefined') {
-            throw new Error("contract_id cannot be undefined")
-        }
-
-
-        // TODO: Figure out best way to do this.
-        // TODO: Probably want to connect before uploading to postgres
-        await keplrWindow.keplr.experimentalSuggestChain(chainConfig)
-        await keplrWindow.keplr.enable('casper-1')
-        const signer = keplrWindow.keplr.getOfflineSigner('casper-1')
         const [account] = await signer.getAccounts()
         const archiveClient = getArchiveClient(signer)
 
@@ -119,17 +81,49 @@ const ReviewPage: NextPage = () => {
         const result = await archiveClient.signAndBroadcast([tx], fee, "")
 
         // Check if the transaction succeeded
-        if (result.code != 0
-            || !result.rawLog) {
+        if (result.code != 0 || !result.rawLog) {
             console.log(result)
             throw new Error("Issue broadcasting transaction.")
         }
         const rawLog = JSON.parse(result.rawLog) as RawLog
         const cdaId = extractIdFromRawLog(rawLog)
-        console.log("CDA Id", cdaId)
+        return cdaId
+    }
+
+    const submit = async () => {
+        // Ensure pdf uploaded and wallet connected
+        if (!pdfString) {
+            throw new Error("pdf string not set!")
+        }
+
+        // Upload PDF to IPFS and S3
+        const ipfs = await getIPFSClient()
+        const ipfsPromise = ipfs.add(pdfString, { pin: true, timeout: 5000 }) // 5 second timeout
+        const s3Promise = api.put('/cda/contract', { pdfString })
+            .then(res => res.json())
+            .catch(console.error)
+        const [ipfsResult, s3Json] = await Promise.all([ipfsPromise, s3Promise])
+        
+        // Load CDA and pubish to the blockchain
+        const cda = fetchOrSetTempCDA()
+        cda.s3Key = s3Json.key as string
+        cda.contractCid = ipfsResult.cid.toString()
+        const onchainId = await publishToChain(cda)
+        console.log("onchain ID", onchainId)
+
+        // Update the CDA object and store in Postgres
+        cda.onchainId = onchainId
+        const dbResponse = await api.post('/cda/cda', { cda })
+        if (!dbResponse.ok) {
+            throw new Error("postgres post failed")
+        }
+        const { cda_id, contract_id } = await dbResponse.json() 
+        if (typeof contract_id === 'undefined') {
+            throw new Error("contract_id cannot be undefined")
+        }
 
         // Should this be the TX hash? CdaId can be changed, but txhash is immutable by consensus
-        const newPdf = await fillContractCdaId(cdaId, pdfString)
+        const newPdf = await fillContractCdaId(`${cda.onchainId}`, pdfString)
 
         // Update store the updated contract in S3 & update Postgres
         const request: PostBody = {
@@ -143,7 +137,7 @@ const ReviewPage: NextPage = () => {
         }
 
         // Finally... we can move to the next page
-        router.push('/create/success')
+        router.push(`/cdas/${cda_id}`)
     }
 
     const onDocumentLoadSuccess = (numPages: number) => {
@@ -204,7 +198,7 @@ const extractIdFromRawLog = (rawLog: RawLog) => {
     if (idAttr.key !== 'cda-id') {
         throw new Error('Cda ID not found in logs')
     }
-    return idAttr.value
+    return parseInt(idAttr.value)
 }
 
 export default ReviewPage

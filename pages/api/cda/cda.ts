@@ -53,7 +53,8 @@ export default async function handler(
         id: randomUUID(),
         status: 'pending',
         creator_wallet: cda.creatorWalletAddress,
-        contract_id:contractModel.id,
+        contract_id: contractModel.id,
+        onchain_id: cda.onchainId,
         created_at: new Date().toISOString()
       }
 
@@ -65,8 +66,8 @@ export default async function handler(
 
       // Build query for CDA
       const cdasQuery: QueryType = {
-        text: "INSERT INTO CDAs (id, status, creator_wallet, contract_id, created_at) VALUES ($1, $2, $3, $4, $5)",
-        values: [cdaModel.id, cdaModel.status, cdaModel.creator_wallet, cdaModel.contract_id, cdaModel.created_at],
+        text: "INSERT INTO CDAs (id, status, creator_wallet, contract_id, onchain_id, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+        values: [cdaModel.id, cdaModel.status, cdaModel.creator_wallet, cdaModel.contract_id, cdaModel.onchain_id, cdaModel.created_at],
       }
 
       // Build list of queries for each owner of the CDA
@@ -120,6 +121,7 @@ const checkCdaFields = (cda: LocalCDA) => {
   }
   if (!cda.s3Key) { result.add("s3Key") }
   if (!cda.contractCid) { result.add("contractCid") }
+  if (!cda.onchainId) { result.add("onchainId") }
   if (!cda.status) { result.add("status") }
   if (!["draft", "pending", "finalized"].includes(cda.status)) { result.add("status") }
 

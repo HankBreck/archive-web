@@ -18,7 +18,7 @@ const AssetUploadPage: NextPage = () => {
     const [openFileSelector, { filesContent, errors, plainFiles }] = useFilePicker({
         multiple: false, // this can probably be multiple in the future. Discuss flexibility with lawyers
         readAs: 'DataURL',
-        accept: 'image/*', // helpful for testing [NEED TO ACCEPT AUDIO FILES]
+        accept: ['.mp3', '.wav'], // helpful for testing [NEED TO ACCEPT AUDIO FILES]
         readFilesContent: true,
     })
 

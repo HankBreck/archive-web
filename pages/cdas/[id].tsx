@@ -1,11 +1,17 @@
+import { isDeliverTxSuccess } from "@cosmjs/stargate";
+import { Ownership } from "archive-client-ts/archive.cda";
+import { MsgApproveCda } from "archive-client-ts/archive.cda/module";
 import { NextPage, NextPageContext } from "next";
 import { useRouter } from "next/router";
 import { decodeFromBase64 } from "pdf-lib";
 import { useEffect, useState } from "react";
 
 import { Document, Page, pdfjs } from "react-pdf";
+import { createMsgApproveCda } from "../../lib/chain/chain";
+import useKeplr from "../../lib/chain/useKeplr";
 import { query } from "../../lib/postgres";
 import api from "../../lib/utils/api-client";
+import { getArchiveClient } from "../../lib/utils/archive";
 import { getSessionId } from "../../lib/utils/cookies";
 import User from "../../models/User";
 
@@ -24,10 +30,11 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
     const router = useRouter()
     const id = router.query.id as string
 
-    const [pdfBytes, setPdfBytes] = useState<Uint8Array | undefined>()
+    const [owners, setOwners] = useState<OwnersRow[]>(ownersInfo)
+    const [pdfBytes, setPdfBytes] = useState<Uint8Array>()
     const [pageCount, setPageCount] = useState<number>()
 
-    // TODO: Add a hook to use Keplr better
+    const [keplr, signer] = useKeplr()
 
     const onDocumentLoadSuccess = (numPages: number) => {
         setPageCount(numPages)
@@ -57,11 +64,55 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
     }, [])
 
     const signContract = async () => {
+        if (!keplr) {
+            console.error("Keplr window not found")
+            return
+        }
+        if (!signer) {
+            console.error("Signer not found")
+            return
+        }
 
+        // Build and broadcast MsgApproveCda
+        const client = getArchiveClient(signer)
+        const msg = await createMsgApproveCda(cdaAndContracts.onchain_id, signer, ownersInfo)
+        console.log(msg)
+        const response = await client.ArchiveCda.tx.sendMsgApproveCda({ value: msg, fee: { amount: [], gas: "100000" } })
+        if (!isDeliverTxSuccess(response)) {
+            console.error(response.rawLog)
+            return
+        }
+
+        // Store signature hash in Postgres
+        const payload = { 
+            cda_id: id, 
+            owner_wallet: userInfo.wallet_address, 
+            hash: response.transactionHash 
+        }
+        console.log(payload)
+        console.log(payload.hash.length)
+        const pgResponse = await api.post('/cda/sign', payload)
+        if (!pgResponse.ok) {
+            const { message } = await pgResponse.json()
+            throw Error(message)
+        }
+
+        // Update the UI with the new signature
+        router.reload()
+        updateWithSignature(response.transactionHash)
+    }
+
+    const updateWithSignature = (hash: string) => {
+        let _owners = owners
+        for (let i = 0; i < _owners.length; i++) {
+            if (_owners[i].owner_wallet === userInfo.wallet_address) {
+                _owners[i].signature_hash = hash
+            }
+        }
+        setOwners(_owners)
     }
 
     const renderSignButton = () => {
-        console.log("User:", userInfo)
         for (let owner of ownersInfo) {
             if (owner.owner_wallet === userInfo.wallet_address && !owner.signature_hash) {
                 return (
@@ -143,10 +194,25 @@ export async function getServerSideProps(ctx: NextPageContext) {
     }
     if (!cdaId) { return { props: {} } }
 
+    // Fetches user info iff sessionId is for the user and has not expired
     const userInfoPromise = fetchUserInfo(sessionId)
     const cdaAndContractsPromise = fetchCdaAndContracts(cdaId)
     const ownersInfoPromise = fetchOwnersInfo(cdaId)
     const [cdaAndContracts, ownersInfo, userInfo] = await Promise.all([cdaAndContractsPromise, ownersInfoPromise, userInfoPromise])
+
+    // TODO: do we need to redirect?
+    if (!cdaAndContracts || !ownersInfo || !userInfo) { 
+        return { redirect: { permanent: false, destination: '/login' }, props: {} } 
+    }
+    let includesUser = false
+    for (let owner of ownersInfo) {
+        if (owner.owner_wallet === userInfo.wallet_address) {
+            includesUser = true
+        }
+    }
+    if (!includesUser) { 
+        return { redirect: { permanent: false, destination: '/login' }, props: {} }
+    }
 
     return {
         props: { cdaAndContracts, ownersInfo, userInfo }
@@ -158,6 +224,7 @@ const fetchUserInfo = async (sessionId: string) => {
     // TODO: Don't call the API here
     const res = await api.get('/user', { sessionId })
     const { user } = await res.json()
+    if (!user) { return null }
     return user as User
 }
 
@@ -192,7 +259,7 @@ const fetchCdaAndContracts = async (id: string) => {
 
 // Query row types
 
-type OwnersRow = {
+export type OwnersRow = {
     // CdaOwnership(cda_id)
     cda_id: string
     // CdaOwnership(owner_wallet) & Users(wallet_address)
