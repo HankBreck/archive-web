@@ -98,6 +98,18 @@
     /* max-width: 2rem; */
 }
 
+.pdfDoc {
+    width: 645px;
+    height: 890px;
+    padding: 20px;
+    overflow: auto;
+}
+
+.pdfPage {
+    width: 605px;
+    height: 850px;
+}
+
 .code {
   background: #fafafa;
   border-radius: 5px;

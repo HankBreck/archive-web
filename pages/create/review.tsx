@@ -4,7 +4,6 @@ import { useRouter } from "next/router";
 
 import { Ownership } from "archive-client-ts/archive.cda/types"
 import { MsgCreateCDA } from 'archive-client-ts/archive.cda/types/cda/tx'
-import { Window as KeplrWindow } from '@keplr-wallet/types'
 import { Coin, StdFee } from "@cosmjs/stargate";
 import { Document, Page, pdfjs } from "react-pdf";
 import { decodeFromBase64 } from "pdf-lib";
@@ -15,11 +14,11 @@ import { getArchiveClient } from '../../lib/utils/archive'
 import { fetchOrSetTempCDA } from "../../lib/utils/cookies";
 import { getIPFSClient } from "../../lib/utils/ipfs";
 import { fillContract, fillContractCdaId } from "../../lib/utils/pdf";
-import { chainConfig } from "../../lib/chain/chain";
 
 import styles from "../../styles/Home.module.css";
 import useKeplr from "../../lib/chain/useKeplr";
 import { LocalCDA } from "../../models/helpers";
+import { generatePDF } from "../../lib/pdf";
 
 // Set global PDF worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
@@ -38,7 +37,8 @@ const ReviewPage: NextPage = () => {
 
     useEffect(() => {
         const fetchContract = async () => {
-            let pdf = await fillContract()
+            // let pdf = await fillContract()
+            let pdf = await generatePDF(3)
             if (!pdf) { 
                 console.log("fillContract has failed. No bytes returned")
                 return
@@ -47,7 +47,7 @@ const ReviewPage: NextPage = () => {
 
             setPdfString(pdf)
             setPdfUrl(
-                window.URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+                pdf //window.URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
             )
         }
         fetchContract()
@@ -141,6 +141,7 @@ const ReviewPage: NextPage = () => {
     }
 
     const onDocumentLoadSuccess = (numPages: number) => {
+        console.log("Num pages", numPages)
         setPageCount(numPages)
     }
 
@@ -158,13 +159,16 @@ const ReviewPage: NextPage = () => {
             <div className={styles.container}>
                 <Document
                     file={pdfUrl}
+                    className={styles.pdfDoc}
                     onLoadSuccess={(pdf) => onDocumentLoadSuccess(pdf.numPages)}
                     onLoadError={(err) => console.error(err)}
                 >
                     {Array.from({ length: pageCount || 0 }, (_, idx) => (
                         <Page 
                             key={`page_${idx}`}
-                            pageIndex={idx}
+                            height={842}
+                            className={styles.pdfPage}
+                            pageNumber={idx+1}
                             renderAnnotationLayer={false}
                             renderTextLayer={true}
                         />
