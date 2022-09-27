@@ -20,7 +20,6 @@ async function generatePDF(ownersLength: number) {
   const page1 = doc.addPage()
   const { height, width } = page1.getSize()
   page1.setFont(timesRoman)
-  console.log("page1 height", page1.getHeight())
 
   let leftMargin = 25
   let currHeight = height - 25
@@ -57,6 +56,7 @@ async function generatePDF(ownersLength: number) {
   */
 
   const form = doc.getForm()
+  doc
   let indentMargin = leftMargin + 50
   for (let i = 0; i < ownersLength; i++) {
     page1.drawText(`ARTIST ${i+1}`, {
@@ -290,6 +290,10 @@ const fillContract = async () => {
   const cdaOwnershipField = form.getTextField('cda.ownership')
   propertyCidField.setText(cda.propertyCid)
   cdaOwnershipField.setText("100%")
+
+  // Set font
+  const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman, {})
+  form.updateFieldAppearances(timesRoman)
 
   return pdfDoc.saveAsBase64()
 }

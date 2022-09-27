@@ -37,7 +37,6 @@ const ReviewPage: NextPage = () => {
     useEffect(() => {
         const fetchContract = async () => {
             let pdf = await fillContract()
-            // let pdf = await generatePDF(3)
             if (!pdf) { 
                 console.log("fillContract has failed. No bytes returned")
                 return
