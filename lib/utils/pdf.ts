@@ -205,7 +205,7 @@ async function generatePDF(ownersLength: number) {
   for (let i = 0; i < ownersLength; i++) {
     // Artist Identification
     sigPage.drawText(`ARTIST ${i+1}`, {
-      x: indentMargin,
+      x: leftMargin,
       y: currHeight - 2 * BODY_SIZE,
       size: BODY_SIZE,
       lineHeight: BODY_SIZE,
@@ -213,7 +213,7 @@ async function generatePDF(ownersLength: number) {
     currHeight -= 2 * BODY_SIZE
 
     sigPage.drawText(`Name:`, {
-      x: leftMargin,
+      x: indentMargin,
       y: currHeight - 2 * BODY_SIZE,
       size: BODY_SIZE,
       lineHeight: BODY_SIZE,
@@ -222,15 +222,15 @@ async function generatePDF(ownersLength: number) {
 
     const artistNameField = form.createTextField(`signature.artist${i}.name`)
     artistNameField.addToPage(sigPage, {
-      x: leftMargin,
+      x: indentMargin,
       y: currHeight - 2 * BODY_SIZE - 5,
       height: BODY_SIZE + 10,
-      width: 40,
+      width: 200,
     })
     currHeight -= 2 * BODY_SIZE
 
     sigPage.drawText(`Transaction Hash:`, {
-      x: leftMargin,
+      x: indentMargin,
       y: currHeight - 2 * BODY_SIZE,
       size: BODY_SIZE,
       lineHeight: BODY_SIZE,
@@ -239,10 +239,10 @@ async function generatePDF(ownersLength: number) {
 
     const artistHashField = form.createTextField(`signature.artist${i}.hash`)
     artistHashField.addToPage(sigPage, {
-      x: leftMargin,
+      x: indentMargin,
       y: currHeight - 2 * BODY_SIZE - 5,
       height: BODY_SIZE + 10,
-      width: 40,
+      width: 200,
     })
     currHeight -= 2 * BODY_SIZE
   }
@@ -278,11 +278,11 @@ const fillContract = async () => {
     const artistNameField = form.getTextField(`artist${i}.name`)
     
     // Set the text for each field
+    artistWalletField.setText(cda.owners[i].owner)
+    artistNameField.setText("TODO") // artistNameField.setText(cda.owners[i].legal_name)
     if (cda.owners[i].owner === user.wallet_address) {
       artistNameField.setText(user.legal_name)
     }
-    artistNameField.setText("TODO") // artistNameField.setText(cda.owners[i].legal_name)
-    artistWalletField.setText(cda.owners[i].owner)
   }
   
   // Fill remaining contract fields
