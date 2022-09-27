@@ -26,8 +26,8 @@ export function updateTempCDA(newCda: LocalCDA) {
   setCookie(null, 'cda', JSON.stringify(newCda), opts)
 }
 
-export function fetchOrSetUser(): User {
-  const { user } = parseCookies()
+export function fetchOrSetUser(ctx?: NextPageContext): User {
+  const { user } = parseCookies(ctx)
 
   if (!user) {
     const newUser = createUser()

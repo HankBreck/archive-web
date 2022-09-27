@@ -36,7 +36,7 @@ export default async function handler(
       // Ensure all fields are set
       const incorrectFields = checkCdaFields(cda)
       if (incorrectFields.size > 0) {
-        return res.status(400).json({ success: false, message: `One or more CDA field incorrectly set: ${incorrectFields}` })
+        return res.status(400).json({ success: false, message: `One or more CDA field incorrectly set: ${JSON.stringify(incorrectFields)}` })
       }
 
       // Build the Contract DB Model
@@ -121,7 +121,7 @@ const checkCdaFields = (cda: LocalCDA) => {
   }
   if (!cda.s3Key) { result.add("s3Key") }
   if (!cda.contractCid) { result.add("contractCid") }
-  if (!cda.onchainId) { result.add("onchainId") }
+  if (typeof cda.onchainId === 'undefined') { result.add("onchainId") }
   if (!cda.status) { result.add("status") }
   if (!["draft", "pending", "finalized"].includes(cda.status)) { result.add("status") }
 

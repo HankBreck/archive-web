@@ -7,9 +7,8 @@ import api from '../utils/api-client'
 import { signingString } from '../utils/constants'
 import { setSessionId } from '../utils/cookies'
 import { Signer } from './useKeplr'
-import { Ownership } from 'archive-client-ts/archive.cda'
-import { OwnersRow } from '../../pages/cdas/[id]'
 import { MsgApproveCda } from 'archive-client-ts/archive.cda/module'
+import { CdaOwnership } from 'archive-client-ts/archive.cda/rest'
 
 // Helper functions
 
@@ -17,13 +16,20 @@ export type VerifiableSignature = {
   signRes: AminoSignResponse
 }
 
-export const createMsgApproveCda = async (cdaId: number, signer: Signer, ownersInfo: OwnersRow[]) => {
+export const createMsgApproveCda = async (cdaId: number, signer: Signer, owners: CdaOwnership[]) => {
   const account = (await signer.getAccounts())[0]
-  const ownership: Ownership[] = ownersInfo.map((owner) => { 
-      return { 
-          owner: owner.owner_wallet, 
-          ownership: parseInt(owner.percent_ownership)
-      }
+  // Ownership {
+  //   owner: string;
+  //   ownership: number;
+  // }
+  const ownership = owners.map((owner) => {
+    if (!owner.ownership || !owner.owner) { 
+      throw Error("Invalid ownership. ownership or owner missing!")
+    }
+    return {
+      owner: owner.owner,
+      ownership: parseInt(owner.ownership!)
+    }
   })
   return { creator: account.address, cdaId, ownership } as MsgApproveCda
 }

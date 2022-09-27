@@ -1,6 +1,7 @@
 import { isDeliverTxSuccess } from "@cosmjs/stargate";
 import { Ownership } from "archive-client-ts/archive.cda";
 import { MsgApproveCda } from "archive-client-ts/archive.cda/module";
+import { CdaCDA } from "archive-client-ts/archive.cda/rest";
 import { NextPage, NextPageContext } from "next";
 import { useRouter } from "next/router";
 import { decodeFromBase64 } from "pdf-lib";
@@ -30,6 +31,7 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
     const router = useRouter()
     const id = router.query.id as string
 
+    const [cda, setCda] = useState<CdaCDA>()
     const [owners, setOwners] = useState<OwnersRow[]>(ownersInfo)
     const [pdfBytes, setPdfBytes] = useState<Uint8Array>()
     const [pageCount, setPageCount] = useState<number>()
@@ -42,7 +44,7 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
 
     // Load PDF bytes from S3
     useEffect(() => {
-        const fetchPrereqs = async () => {
+        const fetchS3 = async () => {
             // Fetch CDAs record, joined with Contracts record from Postgres
             const queryResult = cdaAndContracts
             switch(queryResult.status) {
@@ -60,8 +62,25 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
                 // yes, should we use an indexer tho?
 
         }
-        fetchPrereqs()
+        fetchS3()
     }, [])
+
+    // Load CDA data from the blockchain
+    useEffect(() => {
+        const fetchOnchain = async () => {
+            if (!signer) { return }
+
+            const client = getArchiveClient(signer)
+            const res = await client.ArchiveCda.query.queryCda(`${cdaAndContracts.onchain_id}`)
+            const cda = res.data.cda
+            if (!cda) {
+                console.error("Could not fetch CDA...")
+                return
+            }
+            setCda(cda)
+        }
+        fetchOnchain()
+    }, [signer])
 
     const signContract = async () => {
         if (!keplr) {
@@ -72,11 +91,14 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
             console.error("Signer not found")
             return
         }
+        if (!cda?.ownership) {
+            console.error("Cda Ownership not found")
+            return
+        }
 
         // Build and broadcast MsgApproveCda
         const client = getArchiveClient(signer)
-        const msg = await createMsgApproveCda(cdaAndContracts.onchain_id, signer, ownersInfo)
-        console.log(msg)
+        const msg = await createMsgApproveCda(cdaAndContracts.onchain_id, signer, cda.ownership)
         const response = await client.ArchiveCda.tx.sendMsgApproveCda({ value: msg, fee: { amount: [], gas: "100000" } })
         if (!isDeliverTxSuccess(response)) {
             console.error(response.rawLog)
@@ -89,8 +111,6 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
             owner_wallet: userInfo.wallet_address, 
             hash: response.transactionHash 
         }
-        console.log(payload)
-        console.log(payload.hash.length)
         const pgResponse = await api.post('/cda/sign', payload)
         if (!pgResponse.ok) {
             const { message } = await pgResponse.json()
@@ -99,7 +119,7 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
 
         // Update the UI with the new signature
         router.reload()
-        updateWithSignature(response.transactionHash)
+        // updateWithSignature(response.transactionHash)
     }
 
     const updateWithSignature = (hash: string) => {

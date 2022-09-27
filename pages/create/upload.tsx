@@ -1,12 +1,15 @@
 import { useEffect } from "react";
-import { NextPage } from "next";
+import { NextPage, NextPageContext } from "next";
 import { useRouter } from "next/router";
 import { useFilePicker } from "use-file-picker"
 
-import { fetchOrSetTempCDA, updateTempCDA } from "../../lib/utils/cookies";
+import { fetchOrSetTempCDA, fetchOrSetUser, getSessionId, updateTempCDA } from "../../lib/utils/cookies";
 import { getIPFSClient } from "../../lib/utils/ipfs"
 
 import styles from "../../styles/Home.module.css"
+import { query } from "../../lib/postgres";
+import Session from "../../models/Session";
+import { isSessionValid } from "../../lib/session";
 
 const AssetUploadPage: NextPage = () => {
     /**
@@ -24,9 +27,11 @@ const AssetUploadPage: NextPage = () => {
 
     const saveTempCda = (cid: string) => {
         const cda = fetchOrSetTempCDA()
+        const user = fetchOrSetUser()
 
         cda.status = "draft"
         cda.propertyCid = cid
+        cda.creatorWalletAddress = user.wallet_address
 
         updateTempCDA(cda)
     }
@@ -69,6 +74,26 @@ const AssetUploadPage: NextPage = () => {
             ))}
         </div>
     )
+}
+
+export async function getServerSideProps(ctx: NextPageContext) {
+    const sessionId = getSessionId(ctx)
+    const localUser = fetchOrSetUser(ctx)
+
+    // redirect to login page
+    const redirectResult = {
+        redirect: {
+            permanent: false,
+            destination: '/login'
+        },
+        props: {}
+    }
+    if (!sessionId) { return redirectResult }
+
+    const isAuth = await isSessionValid(sessionId, localUser.wallet_address)
+    if (!isAuth) { return redirectResult }
+
+    return { props: {} }
 }
 
 export default AssetUploadPage

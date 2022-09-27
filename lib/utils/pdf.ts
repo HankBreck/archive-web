@@ -11,12 +11,10 @@ const fillContract = async () => {
   const cda = fetchOrSetTempCDA()
   const user = fetchOrSetUser()
 
-  // TODO: Validate user fields are correctly set
-
   // Validate fields are correctly set
-  if (!validateWalletAddress(cda.creatorWalletAddress)) { return }
-  if (!validateOwners(cda.owners)) { return }
-  if (!validateCid(cda.propertyCid)) { return }
+  if (!validateWalletAddress(cda.creatorWalletAddress)) { console.log(1); return }
+  if (!validateOwners(cda.owners)) { console.log(2); return }
+  if (!validateCid(cda.propertyCid)) { console.log(3); return }
 
   // Set necessary fields
   cda.status = 'pending'

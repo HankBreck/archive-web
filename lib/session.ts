@@ -46,7 +46,7 @@ async function deleteSession(wallet_address: string) {
 type SessionsRow = {
   id: string
   wallet_address: string
-  ttl: number // UTC millisecond timestamp
+  ttl: Date // UTC ISO string
 }
 
 /**
@@ -58,21 +58,14 @@ type SessionsRow = {
  */
 async function isSessionValid(sessionId: string, wallet_address: string) {
   try {
+    const ttl = new Date(Date.now()).toISOString()
     const rows = await query<SessionsRow>(
-      "SELECT * FROM Sessions WHERE id = $1 AND wallet_address = $2", 
-      [sessionId, wallet_address]
+      "SELECT * FROM Sessions WHERE id = $1 AND wallet_address = $2 AND ttl > $3", 
+      [sessionId, wallet_address, ttl]
     )
-    if (!rows || rows.length == 0) { return false }
-
-    const currentTime = new Date().getUTCMilliseconds()
-    for (let row of rows) {
-      if (row.ttl > currentTime) {
-        return true
-      }
-    }
-
-    // if we make it to here, we do not have a valid session
-    return false
+    if (!rows || rows.length < 1) { return false }
+    
+    return true
 
   } catch (err) {
     console.error(err)
