@@ -272,23 +272,24 @@ const fillContract = async () => {
   const pdfDoc = await PDFDocument.load(pdfStr)
   const form = pdfDoc.getForm()
 
-  // Grab each text field
+  // Fill the fields for each owner
   for (let i = 0; i < cda.owners.length; i++) {
-    const owner = cda.owners[i]
-
     const artistWalletField = form.getTextField(`artist${i}.wallet`)
-    const artistNameField = form.getTextField('artist.name')
-    const artistAddressField = form.getTextField('artist.address')
-    const propertyCidField = form.getTextField('property.cid')
-    const cdaOwnershipField = form.getTextField('cda.ownership')
-
+    const artistNameField = form.getTextField(`artist${i}.name`)
+    
     // Set the text for each field
-    artistWalletField.setText(owner.owner)
-    artistNameField.setText(owner.legal_name)
-    artistAddressField.setText(user.street_address)
-    propertyCidField.setText(cda.propertyCid)
-    cdaOwnershipField.setText("100%")
+    if (cda.owners[i].owner === user.wallet_address) {
+      artistNameField.setText(user.legal_name)
+    }
+    artistNameField.setText("TODO") // artistNameField.setText(cda.owners[i].legal_name)
+    artistWalletField.setText(cda.owners[i].owner)
   }
+  
+  // Fill remaining contract fields
+  const propertyCidField = form.getTextField('property.cid')
+  const cdaOwnershipField = form.getTextField('cda.ownership')
+  propertyCidField.setText(cda.propertyCid)
+  cdaOwnershipField.setText("100%")
 
   return pdfDoc.saveAsBase64()
 }

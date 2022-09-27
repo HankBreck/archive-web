@@ -18,7 +18,6 @@ import { fillContract, fillContractCdaId } from "../../lib/utils/pdf";
 import styles from "../../styles/Home.module.css";
 import useKeplr from "../../lib/chain/useKeplr";
 import { LocalCDA } from "../../models/helpers";
-import { generatePDF } from "../../lib/pdf";
 
 // Set global PDF worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
@@ -37,8 +36,8 @@ const ReviewPage: NextPage = () => {
 
     useEffect(() => {
         const fetchContract = async () => {
-            // let pdf = await fillContract()
-            let pdf = await generatePDF(3)
+            let pdf = await fillContract()
+            // let pdf = await generatePDF(3)
             if (!pdf) { 
                 console.log("fillContract has failed. No bytes returned")
                 return
@@ -47,7 +46,7 @@ const ReviewPage: NextPage = () => {
 
             setPdfString(pdf)
             setPdfUrl(
-                pdf //window.URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+                window.URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
             )
         }
         fetchContract()
