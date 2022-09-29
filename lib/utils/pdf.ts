@@ -2,6 +2,7 @@ import { PDFDocument, StandardFonts } from 'pdf-lib'
 
 import { Ownership } from 'archive-client-ts/archive.cda'
 import { fetchOrSetTempCDA, fetchOrSetUser } from "./cookies"
+import { OwnersRow } from '../../pages/cdas/[id]'
 
 
 const TITLE_SIZE = 24
@@ -91,25 +92,13 @@ async function generatePDF(ownersLength: number) {
     })
     currHeight -= 2 * BODY_SIZE + 5
 
-    // const artistAddressField = form.createTextField(`artist${i}.address`)
-    // artistAddressField.addToPage(page1, {
-    //   x: indentMargin,
-    //   y: currHeight - 2 * BODY_SIZE - 5,
-    //   height: BODY_SIZE + 10,
-    //   width: 200,
-    // })
-    // currHeight -= 2 * BODY_SIZE + 5
-
-
-    if (i < ownersLength) {
-      page1.drawText("and", {
-        x: leftMargin,
-        y: currHeight - 2 * BODY_SIZE,
-        size: BODY_SIZE,
-        lineHeight: BODY_SIZE,
-      })
-      currHeight -= 2 * BODY_SIZE
-    }
+    page1.drawText("and", {
+      x: leftMargin,
+      y: currHeight - 2 * BODY_SIZE,
+      size: BODY_SIZE,
+      lineHeight: BODY_SIZE,
+    })
+    currHeight -= 2 * BODY_SIZE
   }
 
   /**
@@ -131,9 +120,28 @@ async function generatePDF(ownersLength: number) {
     size: BODY_SIZE,
     lineHeight: BODY_SIZE,
   })
+  currHeight -= 2 * BODY_SIZE
+
   const cdaIdField = form.createTextField('cda.id')
   cdaIdField.addToPage(page1, {
-    x: indentMargin + 135,
+    x: indentMargin,
+    y: currHeight - 2 * BODY_SIZE - 5,
+    height: BODY_SIZE + 10,
+    width: 200,
+  })
+  currHeight -= 2 * BODY_SIZE + 5
+
+  page1.drawText("MsgCreateCda Transaction Hash:", {
+    x: indentMargin,
+    y: currHeight - 2 * BODY_SIZE,
+    size: BODY_SIZE,
+    lineHeight: BODY_SIZE,
+  })
+  currHeight -= 2 * BODY_SIZE
+
+  const cdaHashField = form.createTextField('cda.hash')
+  cdaHashField.addToPage(page1, {
+    x: indentMargin,
     y: currHeight - 2 * BODY_SIZE - 5,
     height: BODY_SIZE + 10,
     width: 200,
@@ -260,9 +268,9 @@ const fillContract = async () => {
   const user = fetchOrSetUser()
 
   // Validate fields are correctly set
-  if (!validateWalletAddress(cda.creatorWalletAddress)) { console.log(1); return }
-  if (!validateOwners(cda.owners)) { console.log(2); return }
-  if (!validateCid(cda.propertyCid)) { console.log(3); return }
+  if (!validateWalletAddress(cda.creatorWalletAddress)) { return }
+  if (!validateOwners(cda.owners)) { return }
+  if (!validateCid(cda.propertyCid)) { return }
 
   // Set necessary fields
   cda.status = 'pending'
@@ -302,13 +310,53 @@ const fillContract = async () => {
  * Popoulates the legal contract with the CDA's ID
  * @returns the updated PDF document as a base64 encoded string
  */
-const fillContractCdaId = async (cdaId: string, pdf: string) => {
+const fillContractCdaId = async (cdaId: string, hash: string, pdf: string) => {
   const pdfDoc = await PDFDocument.load(pdf)
-  pdfDoc
-    .getForm()
-    .getTextField('cda.id')
-    .setText(cdaId)
+  const form = pdfDoc.getForm()
+
+  const idTextField = form.getTextField('cda.id')
+  idTextField.setText(cdaId)
+
+  const hashTextField = form.getTextField('cda.hash')
+  hashTextField.setText(hash)
+
+  // Set new fields' text to Times New Roman font
+  const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman, {})
+  form.updateFieldAppearances(timesRoman)
   
+  return pdfDoc.saveAsBase64()
+}
+
+/**
+ * Fills the owner legal names for 
+ * @param owners list of OwnerRow objects, ordered the same as on the blockchain
+ * @param pdf the PDF doc, encoded as base64
+ * @returns the updated PDF doc, encoded as base64
+ */
+const fillContractNames = async (owners: OwnersRow[], pdf: string, dataUri: boolean) => {
+  const pdfDoc = await PDFDocument.load(pdf)
+  const form = pdfDoc.getForm()
+
+  for (let i = 0; i < owners.length; i++) {
+    const artistWalletField = form.getTextField(`artist${i}.wallet`)
+    const artistNameField = form.getTextField(`artist${i}.name`)
+    const artistSigNameField = form.getTextField(`signature.artist${i}.name`)
+
+    artistWalletField.setText(owners[i].owner_wallet)
+    artistNameField.setText(owners[i].legal_name)
+    artistSigNameField.setText(owners[i].legal_name)
+    
+    // Might be better to do this elsewhere
+    if (owners[i].signature_hash !== null && owners[i].signature_hash !== "") {
+      const artistSigHashField = form.getTextField(`signature.artist${i}.hash`)
+      artistSigHashField.setText(owners[i].signature_hash!)
+    }
+  }
+
+  // Set new fields' text to Times New Roman font
+  const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman, {})
+  form.updateFieldAppearances(timesRoman)
+
   return pdfDoc.saveAsBase64()
 }
 
@@ -350,4 +398,9 @@ const validateCid = (cid: string | undefined) => {
   return true
 }
 
-export { fillContract, fillContractCdaId }
+const toDataUri = async (pdf: string | Uint8Array) => {
+  const doc = await PDFDocument.load(pdf)
+  return doc.saveAsBase64({ dataUri: true })
+}
+
+export { fillContract, fillContractCdaId, fillContractNames, toDataUri }

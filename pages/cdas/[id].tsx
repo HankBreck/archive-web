@@ -4,8 +4,9 @@ import { MsgApproveCda } from "archive-client-ts/archive.cda/module";
 import { CdaCDA } from "archive-client-ts/archive.cda/rest";
 import { NextPage, NextPageContext } from "next";
 import { useRouter } from "next/router";
-import { decodeFromBase64 } from "pdf-lib";
-import { useEffect, useState } from "react";
+import { decodeFromBase64, decodeFromBase64DataUri, encodeToBase64 } from "pdf-lib";
+import { encode } from "punycode";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 import { Document, Page, pdfjs } from "react-pdf";
 import { createMsgApproveCda } from "../../lib/chain/chain";
@@ -14,6 +15,7 @@ import { query } from "../../lib/postgres";
 import api from "../../lib/utils/api-client";
 import { getArchiveClient } from "../../lib/utils/archive";
 import { getSessionId } from "../../lib/utils/cookies";
+import { fillContractNames, toDataUri } from "../../lib/utils/pdf";
 import User from "../../models/User";
 
 import styles from "../../styles/Home.module.css";
@@ -32,8 +34,10 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
     const id = router.query.id as string
 
     const [cda, setCda] = useState<CdaCDA>()
-    const [owners, setOwners] = useState<OwnersRow[]>(ownersInfo)
-    const [pdfBytes, setPdfBytes] = useState<Uint8Array>()
+    const [owners, setOwners] = useState<OwnersRow[]>()
+    const [pdfString, setPdfString] = useState<string>()
+    const [pdfUri, setPdfUri] = useState<string>()
+    const [filledPdfUri, setFilledPdfUri] = useState<string>()
     const [pageCount, setPageCount] = useState<number>()
 
     const [keplr, signer] = useKeplr()
@@ -53,16 +57,19 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
                 case "pending":
                     const s3Key = queryResult.pending_s3_key || queryResult.original_s3_key
                     const res = await api.get('/cda/contract', { s3Key })
-                    const data = (await res.json()).data as string
-                    const bytes = decodeFromBase64(data)
-                    setPdfBytes(bytes)
+                    const pdf = (await res.json()).data as string
+                    const pdfBytes = decodeFromBase64(pdf)
+
+                    console.log("set pdf string")
+                    setPdfString(pdf)
+                    setPdfUri(
+                        window.URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }))
+                    )
             }
-
-            // Do we need to query the blockchain state?
-                // yes, should we use an indexer tho?
-
         }
-        fetchS3()
+        if (!pdfString) {
+            fetchS3()
+        }
     }, [])
 
     // Load CDA data from the blockchain
@@ -78,9 +85,49 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
                 return
             }
             setCda(cda)
+
+            if (!cda.ownership) { throw Error("The onchain CDA does not have a valid ownership set.") }
+            let orderedOwners = []
+            for (let i = 0; i < cda.ownership.length; i++) {
+                const onchainOwner = cda.ownership[i]
+                if (!onchainOwner || !onchainOwner.owner || !onchainOwner.ownership) {
+                    throw Error(`Onchain owner missing owner or ownership field: ${onchainOwner}`)
+                }
+
+                const match = ownersInfo.find((row) => { return row.owner_wallet === onchainOwner.owner })
+                if (!match) {
+                    throw Error(`No owner found in Postgres for ${onchainOwner.owner}`)
+                }
+                orderedOwners.push(match)
+            }
+            setOwners(orderedOwners)
         }
         fetchOnchain()
     }, [signer])
+
+    const populateContract = async () => {
+        console.log(1)
+        if (!owners) {
+            console.log("No owners found")
+            return
+        }
+        if (!pdfString) {
+            console.log("No pdf string found")
+            return
+        }
+        console.log(2)
+        const pdfStr = await fillContractNames(owners, pdfString, false)
+        const pdfBytes = decodeFromBase64(pdfStr)
+        const uri = window.URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }))
+        // setPdfString(pdfStr)
+        setFilledPdfUri(uri)
+        return uri
+    }
+
+    // Populate the contract with owner details
+    useEffect(() => {
+        populateContract()
+    }, [owners, pdfString])
 
     const signContract = async () => {
         if (!keplr) {
@@ -118,18 +165,8 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
         }
 
         // Update the UI with the new signature
-        router.reload()
-        // updateWithSignature(response.transactionHash)
-    }
-
-    const updateWithSignature = (hash: string) => {
-        let _owners = owners
-        for (let i = 0; i < _owners.length; i++) {
-            if (_owners[i].owner_wallet === userInfo.wallet_address) {
-                _owners[i].signature_hash = hash
-            }
-        }
-        setOwners(_owners)
+        await updateOwnersWithSig(userInfo.wallet_address, response.transactionHash)
+        await populateContract()
     }
 
     const renderSignButton = () => {
@@ -147,7 +184,22 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
         }
     }
 
-    if (!pdfBytes) {
+    const updateOwnersWithSig = async (wallet_address: string, txHash: string) => {
+        if (!owners) {
+            console.error("OwnerRows not found in updateOwnersWithSig")
+            return 
+        }
+        let _owners = owners
+        for (let i = 0; i < _owners.length; i++) {
+            if (_owners[i].owner_wallet === wallet_address) {
+                _owners[i].signature_hash = txHash
+            }
+        }
+        console.log("setting owners in update func")
+        setOwners(_owners)
+    }
+
+    if (!pdfUri) {
         return <h1>Loading PDF...</h1>
     }
 
@@ -162,14 +214,17 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
                 {/* PDF View Component */}
                 <div className={styles.container}>
                     <Document
-                        file={{ data: pdfBytes }}
+                        file={filledPdfUri || pdfUri}
+                        className={styles.pdfDoc}
                         onLoadSuccess={(pdf) => onDocumentLoadSuccess(pdf.numPages)}
                         onLoadError={(err) => console.error(err)}
                     >
                         {Array.from({ length: pageCount || 0 }, (_, idx) => (
                             <Page 
                                 key={`page_${idx}`}
-                                pageIndex={idx}
+                                height={842}
+                                className={styles.pdfPage}
+                                pageNumber={idx+1}
                                 renderAnnotationLayer={false}
                                 renderTextLayer={true}
                             />
@@ -181,12 +236,12 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
                 <div className={styles.container}>
                     <div className={styles.container}>
                         <h2>CDA Owners</h2>
-                        { ownersInfo && ownersInfo.map( (ownersRow, idx) => (
+                        { owners && owners.map( (ownersRow, idx) => (
                             <div key={`owner-${idx}`}>
                                 <h3>{ownersRow.legal_name}</h3>
                                 <p>{ownersRow.owner_wallet}</p>
                                 <p>Ownership: {`${ownersRow.percent_ownership}%`}</p>
-                                <p>{ownersRow.signature_hash ? 'Signed' : 'Awaiting signature'}</p>
+                                <p>{ownersRow.signature_hash === null ? 'Awaiting signature' : 'Signed'}</p>
                             </div>
                         ))}
                     </div>

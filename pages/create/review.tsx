@@ -51,7 +51,7 @@ const ReviewPage: NextPage = () => {
         fetchContract()
     }, [])
 
-    const publishToChain = async (cda: LocalCDA) => {
+    const publishToChain = async (cda: LocalCDA): Promise<[number, string]> => {
         if (!keplr || !signer) { 
             throw new Error("Keplr window missing!")
         }
@@ -85,7 +85,8 @@ const ReviewPage: NextPage = () => {
         }
         const rawLog = JSON.parse(result.rawLog) as RawLog
         const cdaId = extractIdFromRawLog(rawLog)
-        return cdaId
+
+        return [cdaId, result.transactionHash]
     }
 
     const submit = async () => {
@@ -106,8 +107,7 @@ const ReviewPage: NextPage = () => {
         const cda = fetchOrSetTempCDA()
         cda.s3Key = s3Json.key as string
         cda.contractCid = ipfsResult.cid.toString()
-        const onchainId = await publishToChain(cda)
-        console.log("onchain ID", onchainId)
+        const [onchainId, txHash] = await publishToChain(cda)
 
         // Update the CDA object and store in Postgres
         cda.onchainId = onchainId
@@ -121,7 +121,7 @@ const ReviewPage: NextPage = () => {
         }
 
         // Should this be the TX hash? CdaId can be changed, but txhash is immutable by consensus
-        const newPdf = await fillContractCdaId(`${cda.onchainId}`, pdfString)
+        const newPdf = await fillContractCdaId(`${cda.onchainId}`, txHash, pdfString)
 
         // Update store the updated contract in S3 & update Postgres
         const request: PostBody = {
