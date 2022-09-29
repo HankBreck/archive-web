@@ -1,11 +1,14 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { PubKeySecp256k1 } from '@keplr-wallet/crypto'
-import { pubkeyType, decodeSignature, serializeSignDoc } from '@cosmjs/launchpad'
+import { pubkeyType, decodeSignature, serializeSignDoc, AminoSignResponse } from '@cosmjs/launchpad'
 import { toBech32 } from '@cosmjs/encoding'
 
-import { VerifiableSignature } from '../../../lib/chain/chain'
 import { createSession } from '../../../lib/session'
+
+type VerifiableSignature = {
+  signRes: AminoSignResponse
+}
 
 export type UserResponse = {
   _id: string

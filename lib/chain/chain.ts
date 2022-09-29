@@ -1,6 +1,6 @@
 import { Window as KeplrWindow } from '@keplr-wallet/types'
 import { PubKeySecp256k1 } from '@keplr-wallet/crypto'
-import { StdSignDoc, decodeSignature, AminoSignResponse } from '@cosmjs/launchpad'
+import { StdSignDoc, decodeSignature } from '@cosmjs/launchpad'
 import { serializeSignDoc} from '@cosmjs/amino'
 
 import api from '../utils/api-client'
@@ -12,9 +12,8 @@ import { CdaOwnership } from 'archive-client-ts/archive.cda/rest'
 
 // Helper functions
 
-export type VerifiableSignature = {
-  signRes: AminoSignResponse
-}
+
+
 
 export const createMsgApproveCda = async (cdaId: number, signer: Signer, owners: CdaOwnership[]) => {
   const account = (await signer.getAccounts())[0]
