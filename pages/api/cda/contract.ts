@@ -7,6 +7,8 @@ import { s3Client } from '../../../lib/utils/s3'
 import { randomUUID } from 'crypto'
 import { query } from '../../../lib/postgres'
 import { Readable } from 'stream'
+import { bodyStreamToNodeStream } from 'next/dist/server/body-streams'
+import { decodeFromBase64, encodeToBase64 } from 'pdf-lib'
 
 export type PutBody = {
   pdfString: string
@@ -81,8 +83,9 @@ export default async function handler(
     case 'POST':
       // Store a contract in S3 and update the corresponding Contracts entry in Postgress
       body = req.body as PostBody
-      if (body.pdfString === "" || body.s3Key === "") {
-        return res.status(400).json({ message: "Bad request. pdfString and s3Key must not be empty strings" })
+      const invalidFields = validatePostParams(req.body)
+      if (invalidFields.length > 0) {
+        return res.status(400).json({ message: `Bad request. The following fields were incorrectly passed to the API: ${invalidFields.join(', ')}` })
       }
 
       params = {
@@ -140,4 +143,27 @@ const putFileInS3 = async (params: S3PutParams, client: S3Client): Promise<{key?
     console.error(error)
     return { key: undefined, err: error as Error }
   }
+}
+
+/**
+ * Checks the params and returns a list of any incorrect fields
+ * @param body the request body to check
+ * @returns a list of fields that are incorrectly passed to the API
+ */
+const validatePostParams = (body: PostBody) => {
+  let invalids = new Set<string>()
+  if (!body.pdfString || body.pdfString === "") {
+    invalids.add("pdfString")
+  // The PDF string should be the same when decoded to bytes then re-encoded to a string
+  } else if (encodeToBase64(decodeFromBase64(body.pdfString)) !== body.pdfString)
+  if (!body.contractId || body.contractId === "") {
+    invalids.add("contractId")
+  } else if (!body.contractId.match(new RegExp('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'))) {
+    console.log("Not a uuid!"), body.contractId
+    invalids.add("contractId")
+  }
+  if (!body.updateField || !["cid", "original_s3_key", "pending_s3_key", "final_s3_key"].includes(body.updateField)) {
+    invalids.add("updateField")
+  }
+  return Array.from(invalids)
 }

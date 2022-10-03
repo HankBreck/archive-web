@@ -12,7 +12,7 @@ import { query } from "../../lib/postgres";
 import api from "../../lib/utils/api-client";
 import { getArchiveClient } from "../../lib/utils/archive";
 import { getSessionId } from "../../lib/utils/cookies";
-import { fillContractNames } from "../../lib/utils/pdf";
+import { fillContractFinalizeHash, fillContractNames } from "../../lib/utils/pdf";
 import User from "../../models/User";
 
 import styles from "../../styles/Home.module.css";
@@ -51,21 +51,21 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
     useEffect(() => {
         const fetchS3 = async () => {
             // Fetch CDAs record, joined with Contracts record from Postgres
-            const queryResult = cdaAndContracts
-            switch(queryResult.status) {
-                case "draft":
-                    // Idk dude... return maybe?
-                case "pending":
-                    const s3Key = queryResult.pending_s3_key || queryResult.original_s3_key
-                    const res = await api.get('/cda/contract', { s3Key })
-                    const pdf = (await res.json()).data as string
-                    const pdfBytes = decodeFromBase64(pdf)
-
-                    setPdfString(pdf)
-                    setPdfUri(
-                        window.URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }))
-                    )
+            const s3Key = cdaAndContracts.status === "finalized" 
+                ? cdaAndContracts.final_s3_key
+                : cdaAndContracts.pending_s3_key
+            if (!s3Key) { 
+                console.error(`Pdf could not be fetched from s3 for the status of ${cdaAndContracts.status}`)
+                return 
             }
+            const res = await api.get('/cda/contract', { s3Key })
+            const pdf = (await res.json()).data as string
+            const pdfBytes = decodeFromBase64(pdf)
+
+            setPdfString(pdf)
+            setPdfUri(
+                window.URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }))
+            )
         }
         if (!pdfString) {
             fetchS3()
@@ -214,13 +214,16 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
         }
         
         // TODO: Populate the contract with the MsgFinalizeCda tx hash
-        
         if (!pdfString) {
             return
         }
 
+        const pdf = await fillContractFinalizeHash(pdfString, response.transactionHash)
+        setPdfString(pdf)
+        setFilledPdfUri(pdf)
+
         const s3Res = await api.post('/cda/contract', {
-            pdfString,
+            pdfString: pdf,
             updateField: "final_s3_key",
             contractId: cdaAndContracts.contract_id,
         })
@@ -292,6 +295,10 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
     if (!pdfUri) {
         return <h1>Loading PDF...</h1>
     }
+
+    console.log(cda?.approved)
+    console.log("approval bool", !cda?.approved)
+    console.log("whole thing", allApproved && !cda?.approved)
 
     return (
         <div className={styles.main}>

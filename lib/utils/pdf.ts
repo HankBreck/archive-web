@@ -139,8 +139,25 @@ async function generatePDF(ownersLength: number) {
   })
   currHeight -= 2 * BODY_SIZE
 
-  const cdaHashField = form.createTextField('cda.hash')
-  cdaHashField.addToPage(page1, {
+  const createCdaHashField = form.createTextField('cda.create.hash')
+  createCdaHashField.addToPage(page1, {
+    x: indentMargin,
+    y: currHeight - 2 * BODY_SIZE - 5,
+    height: BODY_SIZE + 10,
+    width: 200,
+  })
+  currHeight -= 2 * BODY_SIZE + 5
+
+  page1.drawText("MsgFinalizeCda Transaction Hash:", {
+    x: indentMargin,
+    y: currHeight - 2 * BODY_SIZE,
+    size: BODY_SIZE,
+    lineHeight: BODY_SIZE,
+  })
+  currHeight -= 2 * BODY_SIZE
+
+  const finalizeCdaHashField = form.createTextField('cda.finalize.hash')
+  finalizeCdaHashField.addToPage(page1, {
     x: indentMargin,
     y: currHeight - 2 * BODY_SIZE - 5,
     height: BODY_SIZE + 10,
@@ -317,13 +334,32 @@ const fillContractCdaId = async (cdaId: string, hash: string, pdf: string) => {
   const idTextField = form.getTextField('cda.id')
   idTextField.setText(cdaId)
 
-  const hashTextField = form.getTextField('cda.hash')
+  const hashTextField = form.getTextField('cda.create.hash')
   hashTextField.setText(hash)
 
   // Set new fields' text to Times New Roman font
-  const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman, {})
+  const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman)
   form.updateFieldAppearances(timesRoman)
   
+  return pdfDoc.saveAsBase64()
+}
+
+/**
+ * Fills the MsgFinalizeCda hash field in the CDA with `hash`
+ * @param pdf the original contract, as a base 64 encoded string
+ * @param hash the MsgFinalizeCda hash
+ * @returns the updated contract, as a base64 encoded string
+ */
+const fillContractFinalizeHash = async (pdf: string, hash: string) => {
+  const pdfDoc = await PDFDocument.load(pdf)
+  const form = pdfDoc.getForm()
+
+  const hashTextField = form.getTextField('cda.finalize.hash')
+  hashTextField.setText(hash)
+
+  const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman)
+  form.updateFieldAppearances(timesRoman)
+
   return pdfDoc.saveAsBase64()
 }
 
@@ -403,4 +439,4 @@ const toDataUri = async (pdf: string | Uint8Array) => {
   return doc.saveAsBase64({ dataUri: true })
 }
 
-export { fillContract, fillContractCdaId, fillContractNames, toDataUri }
+export { fillContract, fillContractCdaId, fillContractNames, fillContractFinalizeHash, toDataUri }
