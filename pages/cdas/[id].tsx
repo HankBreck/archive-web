@@ -296,10 +296,6 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
         return <h1>Loading PDF...</h1>
     }
 
-    console.log(cda?.approved)
-    console.log("approval bool", !cda?.approved)
-    console.log("whole thing", allApproved && !cda?.approved)
-
     return (
         <div className={styles.main}>
             <h1>{`Copyright Digital Asset #${id}`}</h1>
