@@ -213,7 +213,6 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
             console.error(response.rawLog)
         }
         
-        // TODO: Populate the contract with the MsgFinalizeCda tx hash
         if (!pdfString) {
             return
         }
