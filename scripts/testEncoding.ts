@@ -39,7 +39,6 @@ const createS3Client = () => {
 
 const bytesToStr = (bytes: Uint8Array) => {
   const u8 = Buffer.from(bytes).toString('utf8')
-  console.log(u8)
   return u8
 }
 
@@ -135,6 +134,5 @@ const main = async () => {
 
   console.log(encodeToBase64(bz1) === recStr)
   console.log(encodeToBase64(bz2) === recStr)
-  // console.log(bz1 === bz2)
 }
 main()

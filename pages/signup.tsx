@@ -83,9 +83,7 @@ const SignUp: NextPage = () => {
     // Set keplrWindow on initial load
     useEffect(() => {
         if (!keplrWindow?.keplr) {
-            console.log("setting keplrWindow")
             setKeplrWindow(window as Window & KeplrWindow )
-            console.log("set keplrWindow")
         }
     }, [])
 

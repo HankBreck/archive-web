@@ -61,7 +61,6 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
                     const pdf = (await res.json()).data as string
                     const pdfBytes = decodeFromBase64(pdf)
 
-                    console.log("set pdf string")
                     setPdfString(pdf)
                     setPdfUri(
                         window.URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }))
@@ -86,7 +85,6 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
                 console.error("Could not fetch CDA...")
                 return
             }
-            console.log("Fetched cda:", _cda)
             setCda(_cda)
 
             // Set all approved and finalized
@@ -141,7 +139,7 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
 
         // Check if we show that all owners have signed
         for (let owner of owners) {
-            if (!owner.signature_hash) { console.log("failed", owner.owner_wallet); return }
+            if (!owner.signature_hash) { return }
         }
 
         haveAllApproved(signer, cda).then(approved => setAllApproved(approved || false))
@@ -217,29 +215,30 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
         
         // TODO: Populate the contract with the MsgFinalizeCda tx hash
         
-
         if (!pdfString) {
             return
         }
-        // TODO: Store the contract in S3
+
         const s3Res = await api.post('/cda/contract', {
             pdfString,
             updateField: "final_s3_key",
             contractId: cdaAndContracts.contract_id,
         })
-        const resJson = await s3Res.json()
-
         if (!s3Res.ok) {
+            const resJson = await s3Res.json()
             console.error(resJson.message)
             return
         }
 
-        const [wallet] = await signer.getAccounts()
         const postgresRes = await api.post('/cda/update', {
             cda_id: id,
             status: "finalized",
-            wallet_address: wallet.address,
+            wallet_address: account.address,
         }, true)
+        if (!postgresRes.ok) {
+            const pgJson = await postgresRes.json()
+            console.error(pgJson.message)
+        }
         
         const _cda = cda
         _cda.approved = true
@@ -287,15 +286,12 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
                 _owners[i].signature_hash = txHash
             }
         }
-        console.log("setting owners in update func")
         setOwners(_owners)
     }
 
     if (!pdfUri) {
         return <h1>Loading PDF...</h1>
     }
-
-    console.log("CDA:", cda)
 
     return (
         <div className={styles.main}>

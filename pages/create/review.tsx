@@ -139,7 +139,6 @@ const ReviewPage: NextPage = () => {
     }
 
     const onDocumentLoadSuccess = (numPages: number) => {
-        console.log("Num pages", numPages)
         setPageCount(numPages)
     }
 

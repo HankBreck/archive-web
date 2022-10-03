@@ -59,9 +59,6 @@ type SessionsRow = {
 async function isSessionValid(sessionId: string, wallet_address: string) {
   try {
     const ttl = new Date(Date.now()).toISOString()
-    console.log(sessionId)
-    console.log(wallet_address)
-    console.log(ttl)
     const rows = await query<SessionsRow>(
       "SELECT * FROM Sessions WHERE id = $1 AND wallet_address = $2 AND ttl > $3", 
       [sessionId, wallet_address, ttl]

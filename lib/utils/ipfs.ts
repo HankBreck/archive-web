@@ -16,7 +16,6 @@ export const getFileContents = async (cid: string) => {
   let i = 0
   for await (const chunk of source) {
       bytes.push(chunk)
-      console.log(`Iter ${i}: ${chunk}`)
       i += 1
   }
   return toString(concat(bytes))

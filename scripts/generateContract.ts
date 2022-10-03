@@ -195,12 +195,11 @@ async function generatePDF() {
 
   const ws = fs.writeFile(outDir + "contract-template.pdf", bufOut, 'binary', (err: any) => {
     if (err) { 
-      console.log(err)
+      console.error(err)
     } else {
       console.log("Saved file to", outDir + "contract-template.pdf")
     }
   })
-  // ws.
 }
 
 generatePDF()

@@ -41,7 +41,6 @@ export default async function handler(
       try {
         // Confirm ownership of CDA before updating
         const rows = await query("SELECT id FROM CdaOwnership WHERE cda_id = $1 and owner_wallet = $2", [body.cda_id, body.wallet_address])
-        console.log(rows)
         if (!rows || rows.length < 1) {
           throw Error(`Owner wallet ${body.wallet_address} is not an owner of the CDA with an id of ${body.cda_id}`)
         }
