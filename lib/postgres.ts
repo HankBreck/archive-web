@@ -30,7 +30,7 @@ let pool: Pool = new Pool({
   host: dbHost,
 })
 
-const query = async <R = any>(
+const query = async <R = any> (
   text: string, 
   values?: any, 
 ) => {
@@ -52,14 +52,15 @@ const query = async <R = any>(
 /**
  * Executes all `queries` as a transaction. Rolls back changes on failure of any query.
  * @param queries A list of objects containing SQL string, values mappings
- * @param enforceOrder Awaits each query before starting the next if true
+ * @param enforceOrder Awaits each query before starting the next if true; default false
  */
-const transaction = async (
+const transaction = async <R = any> (
   queries: QueryType[],
-  enforceOrder?: boolean,
+  enforceOrder: boolean = false,
 ) => {
   const client = await pool.connect()
-  
+  let result: R[][] = []
+
   try {
     // Begin the transation
     await client.query('BEGIN')
@@ -68,15 +69,19 @@ const transaction = async (
     if (enforceOrder) {
       // Wait for each query to finish before sending the next one
       for (let { text, values } of queries) {
-        await client.query(text, values)
+        const rows = await client.query<R>(text, values)
+        result.push(rows.rows)
       }
     } else {
       // Run all queries concurrently
-      const promises: Promise<QueryResult>[] = []
+      const promises: Promise<QueryResult<R>>[] = []
       for (let { text, values } of queries) {
-        promises.push(client.query(text, values))
+        promises.push(client.query<R>(text, values))
       }
-      await Promise.all(promises)
+      const response = await Promise.all(promises)
+      result = response.map((res) => {
+        return res.rows
+      })
     }
 
     // Commit the transaction if no errors
@@ -89,6 +94,8 @@ const transaction = async (
     // Release the client back to the pool
     client.release()
   }
+  
+  return result
 }
 
 type QueryType = {

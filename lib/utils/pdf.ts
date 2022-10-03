@@ -2,7 +2,6 @@ import { PDFDocument, StandardFonts } from 'pdf-lib'
 
 import { Ownership } from 'archive-client-ts/archive.cda'
 import { fetchOrSetTempCDA, fetchOrSetUser } from "./cookies"
-import { OwnersRow } from '../../pages/cdas/[id]'
 
 
 const TITLE_SIZE = 24
@@ -273,7 +272,7 @@ async function generatePDF(ownersLength: number) {
   }
 
   // Return as base64 encoded pdf doc
-  return await doc.saveAsBase64()
+  return doc.saveAsBase64()
 }
 
 /**
@@ -304,7 +303,6 @@ const fillContract = async () => {
     
     // Set the text for each field
     artistWalletField.setText(cda.owners[i].owner)
-    artistNameField.setText("TODO") // artistNameField.setText(cda.owners[i].legal_name)
     if (cda.owners[i].owner === user.wallet_address) {
       artistNameField.setText(user.legal_name)
     }
@@ -363,27 +361,35 @@ const fillContractFinalizeHash = async (pdf: string, hash: string) => {
   return pdfDoc.saveAsBase64()
 }
 
+export type UserFields = {
+  wallet_address: string,
+  legal_name: string,
+  signature_hash?: string,
+}
+
 /**
  * Fills the owner legal names for 
  * @param owners list of OwnerRow objects, ordered the same as on the blockchain
  * @param pdf the PDF doc, encoded as base64
  * @returns the updated PDF doc, encoded as base64
  */
-const fillContractNames = async (owners: OwnersRow[], pdf: string, dataUri: boolean) => {
+const fillContractNames = async (owners: UserFields[], pdf: string) => {
   const pdfDoc = await PDFDocument.load(pdf)
   const form = pdfDoc.getForm()
 
   for (let i = 0; i < owners.length; i++) {
+    if (!owners[i]) { continue }
+
     const artistWalletField = form.getTextField(`artist${i}.wallet`)
     const artistNameField = form.getTextField(`artist${i}.name`)
     const artistSigNameField = form.getTextField(`signature.artist${i}.name`)
 
-    artistWalletField.setText(owners[i].owner_wallet)
+    artistWalletField.setText(owners[i].wallet_address)
     artistNameField.setText(owners[i].legal_name)
     artistSigNameField.setText(owners[i].legal_name)
     
     // Might be better to do this elsewhere
-    if (owners[i].signature_hash !== null && owners[i].signature_hash !== "") {
+    if (owners[i].signature_hash && owners[i].signature_hash !== "") {
       const artistSigHashField = form.getTextField(`signature.artist${i}.hash`)
       artistSigHashField.setText(owners[i].signature_hash!)
     }

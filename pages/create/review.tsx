@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NextPage } from "next";
+import { NextPage, NextPageContext } from "next";
 import { useRouter } from "next/router";
 
 import { Ownership } from "archive-client-ts/archive.cda/types"
@@ -11,36 +11,42 @@ import { decodeFromBase64 } from "pdf-lib";
 import api from "../../lib/utils/api-client";
 import { PostBody } from "../api/cda/contract";
 import { getArchiveClient } from '../../lib/utils/archive'
-import { fetchOrSetTempCDA } from "../../lib/utils/cookies";
+import { fetchOrSetTempCDA, fetchOrSetUser, getSessionId } from "../../lib/utils/cookies";
 import { getIPFSClient } from "../../lib/utils/ipfs";
-import { fillContract, fillContractCdaId } from "../../lib/utils/pdf";
+import { fillContract, fillContractCdaId, fillContractNames, UserFields } from "../../lib/utils/pdf";
 
 import styles from "../../styles/Home.module.css";
 import useKeplr from "../../lib/chain/useKeplr";
 import { LocalCDA } from "../../models/helpers";
+import { transaction } from "../../lib/postgres";
+import { isSessionValid } from "../../lib/session";
+
+interface Props {
+    owners: UserFields[]
+}
 
 // Set global PDF worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
-const ReviewPage: NextPage = () => {
+const ReviewPage: NextPage<Props> = ({ owners }) => {
     const router = useRouter()
 
     // Keplr Helpers
     const [keplr, signer] = useKeplr()
 
     // PDF state variables
-    // TODO: Manage these data structures better
     const [pdfUrl, setPdfUrl] = useState<string | undefined>()
     const [pdfString, setPdfString] = useState<string | undefined>()
     const [pageCount, setPageCount] = useState<number>()
 
     useEffect(() => {
         const fetchContract = async () => {
-            let pdf = await fillContract()
-            if (!pdf) { 
+            let basePdf = await fillContract()
+            if (!basePdf) { 
                 console.log("fillContract has failed. No bytes returned")
                 return
             }
+            let pdf = await fillContractNames(owners, basePdf)
             const bytes = decodeFromBase64(pdf)
 
             setPdfString(pdf)
@@ -181,6 +187,30 @@ const ReviewPage: NextPage = () => {
             </div>
         </div>
     )
+}
+
+export async function getServerSideProps(ctx: NextPageContext) {
+    const sessionId = getSessionId(ctx)
+    const cda = fetchOrSetTempCDA(ctx)
+    const user = fetchOrSetUser(ctx)
+
+    // Ensure session is valid
+    if (!sessionId || !(await isSessionValid(sessionId, user.wallet_address))) { 
+        return { redirect: { permanent: false, destination: '/login' }, props: {} } 
+    }
+
+    // Fetch owner names to use in contract
+    const queries = []
+    for (let owner of cda.owners) {
+        queries.push({
+            text: "SELECT wallet_address, legal_name FROM Users WHERE wallet_address = $1",
+            values: [owner.owner]
+        })
+    }
+    const result = await transaction<UserFields>(queries)
+    const owners = result.map((rows) => { return rows.length > 0 ? rows[0] : null })
+
+    return { props: { owners } }
 }
 
 type RawLog = [{ 

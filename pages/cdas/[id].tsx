@@ -16,7 +16,6 @@ import { fillContractFinalizeHash, fillContractNames } from "../../lib/utils/pdf
 import User from "../../models/User";
 
 import styles from "../../styles/Home.module.css";
-import { PostBody } from "../api/cda/contract";
 
 interface Props {
     cdaAndContracts: CdaAndContractRow
@@ -120,7 +119,14 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
             console.log("No pdf string found")
             return
         }
-        const pdfStr = await fillContractNames(owners, pdfString, false)
+        const userFields = owners.map((owner) => {
+            return {
+                wallet_address: owner.owner_wallet,
+                legal_name: owner.legal_name,
+                signature_hash: owner.signature_hash || undefined,
+            }
+        })
+        const pdfStr = await fillContractNames(userFields, pdfString)
         const pdfBytes = decodeFromBase64(pdfStr)
         const uri = window.URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }))
         setFilledPdfUri(uri)

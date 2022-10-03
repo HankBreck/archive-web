@@ -10,20 +10,20 @@ export const opts: Opts = {
   path: '/'
 }
 
-export function fetchOrSetTempCDA(): LocalCDA {
-  const { cda } = parseCookies()
+export function fetchOrSetTempCDA(ctx?: NextPageContext): LocalCDA {
+  const { cda } = parseCookies(ctx)
 
   if (!cda) {
     const newCda = createCda()
-    setCookie(null, 'cda', JSON.stringify(newCda), opts)
+    setCookie(ctx, 'cda', JSON.stringify(newCda), opts)
     return newCda
   }
 
   return JSON.parse(cda)
 }
 
-export function updateTempCDA(newCda: LocalCDA) {
-  setCookie(null, 'cda', JSON.stringify(newCda), opts)
+export function updateTempCDA(newCda: LocalCDA, ctx?: NextPageContext) {
+  setCookie(ctx, 'cda', JSON.stringify(newCda), opts)
 }
 
 export function fetchOrSetUser(ctx?: NextPageContext): User {
@@ -31,19 +31,19 @@ export function fetchOrSetUser(ctx?: NextPageContext): User {
 
   if (!user) {
     const newUser = createUser()
-    setCookie(null, 'user', JSON.stringify(newUser), opts)
+    setCookie(ctx, 'user', JSON.stringify(newUser), opts)
     return newUser
   }
 
   return JSON.parse(user)
 }
 
-export function updateUser(newUser: User) {
-  setCookie(null, 'user', JSON.stringify(newUser), opts)
+export function updateUser(newUser: User, ctx?: NextPageContext) {
+  setCookie(ctx, 'user', JSON.stringify(newUser), opts)
 }
 
-export function setSessionId(id: string) {
-  setCookie(null, 'sessionId', id, opts)
+export function setSessionId(id: string, ctx?: NextPageContext) {
+  setCookie(ctx, 'sessionId', id, opts)
 }
 
 export function getSessionId(ctx?: NextPageContext) {
