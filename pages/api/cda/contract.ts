@@ -99,7 +99,7 @@ export default async function handler(
       
       await query(
         // Special Postgres formatting to prevent SQL injections
-        format("UPDATE Contracts SET %s = $1 WHERE id = $2", body.updateField),
+        format("UPDATE Contracts SET %I = $1 WHERE id = $2", body.updateField),
         [params.Key, body.contractId]
       )
 

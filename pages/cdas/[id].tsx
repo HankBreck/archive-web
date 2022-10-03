@@ -1,24 +1,22 @@
 import { isDeliverTxSuccess } from "@cosmjs/stargate";
-import { Ownership } from "archive-client-ts/archive.cda";
-import { MsgApproveCda } from "archive-client-ts/archive.cda/module";
 import { CdaCDA } from "archive-client-ts/archive.cda/rest";
 import { NextPage, NextPageContext } from "next";
 import { useRouter } from "next/router";
-import { decodeFromBase64, decodeFromBase64DataUri, encodeToBase64 } from "pdf-lib";
-import { encode } from "punycode";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { decodeFromBase64 } from "pdf-lib";
+import { useEffect, useState } from "react";
 
 import { Document, Page, pdfjs } from "react-pdf";
-import { createMsgApproveCda } from "../../lib/chain/chain";
+import { createMsgApproveCda, haveAllApproved } from "../../lib/chain/chain";
 import useKeplr from "../../lib/chain/useKeplr";
 import { query } from "../../lib/postgres";
 import api from "../../lib/utils/api-client";
 import { getArchiveClient } from "../../lib/utils/archive";
 import { getSessionId } from "../../lib/utils/cookies";
-import { fillContractNames, toDataUri } from "../../lib/utils/pdf";
+import { fillContractNames } from "../../lib/utils/pdf";
 import User from "../../models/User";
 
 import styles from "../../styles/Home.module.css";
+import { PostBody } from "../api/cda/contract";
 
 interface Props {
     cdaAndContracts: CdaAndContractRow
@@ -30,17 +28,20 @@ interface Props {
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
 const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => {
+    const [keplr, signer] = useKeplr()
     const router = useRouter()
     const id = router.query.id as string
 
+    // Blockchain state variables
     const [cda, setCda] = useState<CdaCDA>()
     const [owners, setOwners] = useState<OwnersRow[]>()
+    const [allApproved, setAllApproved] = useState(false)
+
+    // PDF state variables
     const [pdfString, setPdfString] = useState<string>()
     const [pdfUri, setPdfUri] = useState<string>()
     const [filledPdfUri, setFilledPdfUri] = useState<string>()
     const [pageCount, setPageCount] = useState<number>()
-
-    const [keplr, signer] = useKeplr()
 
     const onDocumentLoadSuccess = (numPages: number) => {
         setPageCount(numPages)
@@ -77,19 +78,26 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
         const fetchOnchain = async () => {
             if (!signer) { return }
 
+            // Set CDA in state
             const client = getArchiveClient(signer)
             const res = await client.ArchiveCda.query.queryCda(`${cdaAndContracts.onchain_id}`)
-            const cda = res.data.cda
-            if (!cda) {
+            const _cda = res.data.cda
+            if (!_cda) {
                 console.error("Could not fetch CDA...")
                 return
             }
-            setCda(cda)
+            console.log("Fetched cda:", _cda)
+            setCda(_cda)
 
-            if (!cda.ownership) { throw Error("The onchain CDA does not have a valid ownership set.") }
+            // Set all approved and finalized
+            const allHaveApproved = await haveAllApproved(signer, _cda)
+            setAllApproved(allHaveApproved || false)
+
+            // Set owners in state (same order as on chain)
+            if (!_cda.ownership) { throw Error("The onchain CDA does not have a valid ownership set.") }
             let orderedOwners = []
-            for (let i = 0; i < cda.ownership.length; i++) {
-                const onchainOwner = cda.ownership[i]
+            for (let i = 0; i < _cda.ownership.length; i++) {
+                const onchainOwner = _cda.ownership[i]
                 if (!onchainOwner || !onchainOwner.owner || !onchainOwner.ownership) {
                     throw Error(`Onchain owner missing owner or ownership field: ${onchainOwner}`)
                 }
@@ -106,7 +114,6 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
     }, [signer])
 
     const populateContract = async () => {
-        console.log(1)
         if (!owners) {
             console.log("No owners found")
             return
@@ -115,11 +122,9 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
             console.log("No pdf string found")
             return
         }
-        console.log(2)
         const pdfStr = await fillContractNames(owners, pdfString, false)
         const pdfBytes = decodeFromBase64(pdfStr)
         const uri = window.URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }))
-        // setPdfString(pdfStr)
         setFilledPdfUri(uri)
         return uri
     }
@@ -128,6 +133,20 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
     useEffect(() => {
         populateContract()
     }, [owners, pdfString])
+
+    // Check if we should show finalize
+    useEffect(() => {
+        // Ensure all dependencies are set
+        if (!owners || !signer || !cda || allApproved) { return }
+
+        // Check if we show that all owners have signed
+        for (let owner of owners) {
+            if (!owner.signature_hash) { console.log("failed", owner.owner_wallet); return }
+        }
+
+        haveAllApproved(signer, cda).then(approved => setAllApproved(approved || false))
+        
+    }, [owners, signer, cda])
 
     const signContract = async () => {
         if (!keplr) {
@@ -167,10 +186,70 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
         // Update the UI with the new signature
         await updateOwnersWithSig(userInfo.wallet_address, response.transactionHash)
         await populateContract()
+
+        // 
+        const allHaveApproved = await haveAllApproved(signer, cda)
+        setAllApproved(allHaveApproved || false)
+    }
+
+    const finalizeContract = async () => {
+        if (!keplr) {
+            console.error("Keplr window not found")
+            return
+        }
+        if (!signer) {
+            console.error("Signer not found")
+            return
+        }
+        if (!cda?.id) {
+            console.error("Cda ID not found")
+            return
+        }
+
+        const client = getArchiveClient(signer)
+        const [account] = await signer.getAccounts()
+        const cdaId = parseInt(cda.id)
+        const response = await client.ArchiveCda.tx.sendMsgFinalizeCda({ value: { creator: account.address, cdaId: cdaId }})
+        if (!isDeliverTxSuccess(response)) {
+            console.error("Could not broadcast MsgFinalizeCda")
+            console.error(response.rawLog)
+        }
+        
+        // TODO: Populate the contract with the MsgFinalizeCda tx hash
+        
+
+        if (!pdfString) {
+            return
+        }
+        // TODO: Store the contract in S3
+        const s3Res = await api.post('/cda/contract', {
+            pdfString,
+            updateField: "final_s3_key",
+            contractId: cdaAndContracts.contract_id,
+        })
+        const resJson = await s3Res.json()
+
+        if (!s3Res.ok) {
+            console.error(resJson.message)
+            return
+        }
+
+        const [wallet] = await signer.getAccounts()
+        const postgresRes = await api.post('/cda/update', {
+            cda_id: id,
+            status: "finalized",
+            wallet_address: wallet.address,
+        }, true)
+        
+        const _cda = cda
+        _cda.approved = true
+        setCda(_cda)
     }
 
     const renderSignButton = () => {
-        for (let owner of ownersInfo) {
+        if (!owners) { return }
+
+        for (let owner of owners) {
             if (owner.owner_wallet === userInfo.wallet_address && !owner.signature_hash) {
                 return (
                     <button 
@@ -182,6 +261,19 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
                 )
             }
         }
+    }
+
+    const renderFinalizeButton = () => {
+        // if all owners have signed, show finalize
+        if (!allApproved) { return }
+        return (
+            <button 
+                className={styles.button}
+                onClick={finalizeContract}
+            >
+                Finalize Contract
+            </button>
+        )
     }
 
     const updateOwnersWithSig = async (wallet_address: string, txHash: string) => {
@@ -203,11 +295,11 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
         return <h1>Loading PDF...</h1>
     }
 
+    console.log("CDA:", cda)
+
     return (
         <div className={styles.main}>
             <h1>{`Copyright Digital Asset #${id}`}</h1>
-
-            {/* TODO: Show the contract's status */}
 
             <div className={styles.horizContainer}>
 
@@ -248,6 +340,9 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
                     
                     {/* Button to sign contract */}
                     { userInfo && renderSignButton() }
+
+                    {/* Button to finalize contract */}
+                    { allApproved && !cda?.approved && renderFinalizeButton() }
                 </div>
             </div>
         </div>

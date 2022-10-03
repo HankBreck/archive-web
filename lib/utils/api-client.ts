@@ -17,7 +17,8 @@ const encodeGetParams = (params: Record<string, string> | undefined) => {
 
 const get = (
   endpoint: string,
-  params: Record<string, string> | undefined // Only strings because of encodeGetParams
+  params: Record<string, string> | undefined, // Only strings because of encodeGetParams
+  includeCookies?: boolean,
 ): Promise<Response> => {
 
   if (endpoint.startsWith('/')) {
@@ -28,7 +29,9 @@ const get = (
     const server_uri = process.env.NODE_ENV === 'production'
       ? process.env.SERVER_URI!
       : 'http://localhost:3000'
-    return fetch(`${server_uri}/api/${endpoint}?${encodeGetParams(params)}`).then(handleErrors)
+    return fetch(`${server_uri}/api/${endpoint}?${encodeGetParams(params)}`, { 
+      credentials: includeCookies ? 'include' : 'omit'
+    }).then(handleErrors)
   }
 
   // TODO urlencode params
@@ -37,7 +40,8 @@ const get = (
 
 const post = (
   endpoint: string,
-  body: Record<string, unknown> | undefined
+  body: Record<string, unknown> | undefined,
+  includeCookies?: boolean,
 ): Promise<Response> => {
   if (endpoint.startsWith('/')) {
     endpoint = endpoint.slice(1)
@@ -48,13 +52,15 @@ const post = (
     headers: {
       'Content-type': 'application/json'
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    credentials: includeCookies ? 'include' : 'omit'
   }).then(handleErrors)
 }
 
 const put = (
   endpoint: string,
-  body: Record<string, unknown>  | undefined
+  body: Record<string, unknown>  | undefined,
+  includeCookies?: boolean,
 ): Promise<Response> => {
   if (endpoint.startsWith('/')) {
     endpoint = endpoint.slice(1)
@@ -65,7 +71,8 @@ const put = (
     headers: {
       'Content-type': 'application/json'
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    credentials: includeCookies ? 'include' : 'omit'
   }).then(handleErrors)
 }
 

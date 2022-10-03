@@ -8,12 +8,41 @@ import { signingString } from '../utils/constants'
 import { setSessionId } from '../utils/cookies'
 import { Signer } from './useKeplr'
 import { MsgApproveCda } from 'archive-client-ts/archive.cda/module'
-import { CdaOwnership } from 'archive-client-ts/archive.cda/rest'
+import { CdaCDA, CdaOwnership } from 'archive-client-ts/archive.cda/rest'
+import { getArchiveClient } from '../utils/archive'
+import { OfflineSigner } from '@cosmjs/proto-signing'
 
 // Helper functions
 
+/**
+ * Queries the blockchain to determine whether or not all parties have approved the CDA
+ * @param signer the keplr signer used in archiveClient
+ * @param cdaId the id of the CDA to check
+ * @returns true if all parties have signed, else false
+ */
+export const haveAllApproved = async (signer: OfflineSigner, cda: CdaCDA) => {
+  if (!cda.id || !cda.ownership) { return false }
 
+  const queryClient = getArchiveClient(signer).ArchiveCda.query
 
+  const promises = []
+  for (let owner of cda.ownership) {
+    const promise = queryClient.queryApproval(cda.id, { owner: owner.owner })
+    promises.push(promise)
+  }
+
+  let responses = await Promise.all(promises)
+  const approvals = responses.map((res) => {
+    return res.data.approved
+  })
+  // accumulate the strict truth value for the array 
+  // if any are undefined or false, the result is false
+  const res = approvals.reduce((prev, current) => {
+    return !!prev && !!current 
+  })
+
+  return res
+}
 
 export const createMsgApproveCda = async (cdaId: number, signer: Signer, owners: CdaOwnership[]) => {
   const account = (await signer.getAccounts())[0]
