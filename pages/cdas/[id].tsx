@@ -248,9 +248,11 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
             console.error(pgJson.message)
         }
         
-        const _cda = cda
+        const _cda = {...cda}
         _cda.approved = true
         setCda(_cda)
+
+        return
     }
 
     const renderSignButton = () => {
@@ -271,8 +273,9 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
     }
 
     const renderFinalizeButton = () => {
-        // if all owners have signed, show finalize
-        if (!allApproved) { return }
+        // Do not display the button if one or more parties need to sign
+        // or if the CDA has already been finalized
+        if (!allApproved || cda?.approved) { return }
         return (
             <button 
                 className={styles.button}
@@ -300,6 +303,9 @@ const CdaPage: NextPage<Props> = ({ cdaAndContracts, ownersInfo, userInfo }) => 
     if (!pdfUri) {
         return <h1>Loading PDF...</h1>
     }
+
+    console.log("cda?.approved", cda?.approved)
+    console.log("full bool", cda?.approved)
 
     return (
         <div className={styles.main}>

@@ -1,12 +1,18 @@
-import { create, IPFS } from 'ipfs-core'
+import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { concat, toString } from "uint8arrays"
 
-let ipfs: IPFS
+let ipfs: IPFSHTTPClient
+
+const IPFS_API = (process.env.NODE_ENV === "production" 
+  ? process.env.IPFS_API_URI
+  : process.env.IPFS_DEV_API_URI) || "/ip4/127.0.0.1/tcp/5001"
 
 export const getIPFSClient = async () => {
   if (!ipfs) {
-    ipfs = await create()
+    // ipfs = create({ host: "0.0.0.0", port: 9095, protocol: "http" })
+    ipfs = create({ url: "/ip4/0.0.0.0/tcp/9095" })
   }
+
   return ipfs
 }
 

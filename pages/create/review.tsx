@@ -102,8 +102,9 @@ const ReviewPage: NextPage<Props> = ({ owners }) => {
         }
 
         // Upload PDF to IPFS and S3
-        const ipfs = await getIPFSClient()
-        const ipfsPromise = ipfs.add(pdfString, { pin: true, timeout: 5000 }) // 5 second timeout
+        const ipfsPromise = api.post('/ipfs', { content: pdfString })
+            .then(res => res.json())
+            .catch(console.error)
         const s3Promise = api.put('/cda/contract', { pdfString })
             .then(res => res.json())
             .catch(console.error)
@@ -112,7 +113,7 @@ const ReviewPage: NextPage<Props> = ({ owners }) => {
         // Load CDA and pubish to the blockchain
         const cda = fetchOrSetTempCDA()
         cda.s3Key = s3Json.key as string
-        cda.contractCid = ipfsResult.cid.toString()
+        cda.contractCid = ipfsResult.cid
         const [onchainId, txHash] = await publishToChain(cda)
 
         // Update the CDA object and store in Postgres

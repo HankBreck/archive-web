@@ -10,6 +10,7 @@ import styles from "../../styles/Home.module.css"
 import { query } from "../../lib/postgres";
 import Session from "../../models/Session";
 import { isSessionValid } from "../../lib/session";
+import api from "../../lib/utils/api-client";
 
 const AssetUploadPage: NextPage = () => {
     /**
@@ -40,12 +41,14 @@ const AssetUploadPage: NextPage = () => {
     useEffect( () => {
         const uploadFile = async (content: string) => {
             // Load IPFS client
-            const ipfsClient = await getIPFSClient()
-    
-            // Add and pin the file to our external IPFS node
-            const res = await ipfsClient.add(content, { pin: true })
-            
-            return res.cid.toString()
+            const result = await api.post('/ipfs', { content })
+            const rJson = await result.json()
+            if (!result.ok) {
+                throw Error(rJson.message)
+            }
+
+            const { cid } = rJson
+            return cid
         }
 
         // Check if files are correctish then upload, store, and navigate

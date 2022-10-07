@@ -23,7 +23,7 @@
     "@keplr-wallet/crypto": "^0.11.0",
     "@keplr-wallet/types": "^0.10.19",
     "archive-client-ts": "^0.1.0",
-    "ipfs-core": "^0.15.4",
+    "ipfs-http-client": "^58.0.1",
     "next": "12.2.5",
     "next-transpile-modules": "^9.0.0",
     "nookies": "^2.5.2",
